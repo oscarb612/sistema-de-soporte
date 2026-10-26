@@ -1,0 +1,91 @@
+<?php
+
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\RepairOrderController;
+use App\Http\Controllers\MailSettingController;
+use App\Http\Controllers\AiSettingController;
+use App\Http\Controllers\DeviceLabelAnalysisController;
+use App\Http\Controllers\RepairOrderPhotoController;
+use App\Http\Controllers\RepairOrderPaymentController;
+use App\Http\Controllers\RepairQuoteController;
+use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\DataRecoveryCaseController;
+use App\Http\Controllers\DataRecoveryPhotoController;
+use App\Http\Controllers\DataRecoveryQuoteController;
+use App\Http\Controllers\DataRecoveryPaymentController;
+use App\Http\Controllers\DataRecoveryDashboardController;
+use App\Http\Controllers\StorageLabelAnalysisController;
+use App\Http\Controllers\TransportSettingController;
+use App\Http\Controllers\HomeServicePreorderController;
+use App\Http\Controllers\HomeServiceMediaController;
+use App\Http\Controllers\PwaSettingController;
+use Illuminate\Support\Facades\Route;
+
+Route::middleware('guest')->group(function () {
+    Route::get('login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('login', [AuthController::class, 'login'])->name('login.store');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+
+    Route::get('/', DashboardController::class)->name('dashboard');
+
+    Route::resource('companies', CompanyController::class)->except(['show']);
+    Route::get('clients/search-suggestions', [ClientController::class, 'searchSuggestions'])->name('clients.search-suggestions');
+    Route::get('clients/lookup-by-rut', [ClientController::class, 'lookupByRut'])->name('clients.lookup-by-rut');
+    Route::resource('clients', ClientController::class)->except(['show', 'destroy']);
+    Route::get('repair-orders/{repair_order}/quotes/create', [RepairQuoteController::class, 'create'])->name('repair-orders.quotes.create');
+    Route::post('repair-orders/{repair_order}/quotes', [RepairQuoteController::class, 'store'])->name('repair-orders.quotes.store');
+    Route::post('repair-orders/{repair_order}/payments', [RepairOrderPaymentController::class, 'store'])->name('repair-orders.payments.store');
+    Route::delete('repair-orders/{repair_order}/payments/{payment}', [RepairOrderPaymentController::class, 'destroy'])->name('repair-orders.payments.destroy');
+    Route::get('repair-orders/search-suggestions', [RepairOrderController::class, 'searchSuggestions'])->name('repair-orders.search-suggestions');
+    Route::get('repair-orders/{repair_order}/print', [RepairOrderController::class, 'print'])->name('repair-orders.print');
+    Route::post('repair-orders/{repair_order}/send-email', [RepairOrderController::class, 'sendEmail'])->name('repair-orders.send-email');
+    Route::get('repair-quotes/{repair_quote}', [RepairQuoteController::class, 'show'])->name('repair-quotes.show');
+    Route::get('repair-quotes/{repair_quote}/print', [RepairQuoteController::class, 'print'])->name('repair-quotes.print');
+    Route::post('repair-quotes/{repair_quote}/approve', [RepairQuoteController::class, 'approve'])->name('repair-quotes.approve');
+    Route::post('repair-quotes/{repair_quote}/reject', [RepairQuoteController::class, 'reject'])->name('repair-quotes.reject');
+    Route::delete('repair-quotes/{repair_quote}', [RepairQuoteController::class, 'destroy'])->name('repair-quotes.destroy');
+    Route::resource('repair-orders', RepairOrderController::class);
+    Route::get('data-recovery-dashboard', DataRecoveryDashboardController::class)->name('data-recovery.dashboard');
+    Route::get('data-recovery/{data_recovery}/print', [DataRecoveryCaseController::class, 'print'])->name('data-recovery.print');
+    Route::get('data-recovery/{data_recovery}/quotes/create', [DataRecoveryQuoteController::class, 'create'])->name('data-recovery.quotes.create');
+    Route::post('data-recovery/{data_recovery}/quotes', [DataRecoveryQuoteController::class, 'store'])->name('data-recovery.quotes.store');
+    Route::post('data-recovery/{data_recovery}/payments', [DataRecoveryPaymentController::class, 'store'])->name('data-recovery.payments.store');
+    Route::delete('data-recovery/{data_recovery}/payments/{payment}', [DataRecoveryPaymentController::class, 'destroy'])->name('data-recovery.payments.destroy');
+    Route::get('data-recovery-quotes/{data_recovery_quote}', [DataRecoveryQuoteController::class, 'show'])->name('data-recovery-quotes.show');
+    Route::get('data-recovery-quotes/{data_recovery_quote}/print', [DataRecoveryQuoteController::class, 'print'])->name('data-recovery-quotes.print');
+    Route::post('data-recovery-quotes/{data_recovery_quote}/approve', [DataRecoveryQuoteController::class, 'approve'])->name('data-recovery-quotes.approve');
+    Route::post('data-recovery-quotes/{data_recovery_quote}/reject', [DataRecoveryQuoteController::class, 'reject'])->name('data-recovery-quotes.reject');
+    Route::delete('data-recovery-quotes/{data_recovery_quote}', [DataRecoveryQuoteController::class, 'destroy'])->name('data-recovery-quotes.destroy');
+    Route::get('data-recovery-photos/{photo}', [DataRecoveryPhotoController::class, 'show'])->name('data-recovery-photos.show');
+    Route::delete('data-recovery-photos/{photo}', [DataRecoveryPhotoController::class, 'destroy'])->name('data-recovery-photos.destroy');
+    Route::resource('data-recovery', DataRecoveryCaseController::class)->parameters(['data-recovery' => 'data_recovery']);
+    Route::resource('services', ServiceController::class)->except(['show', 'destroy']);
+    Route::get('mail-settings', [MailSettingController::class, 'edit'])->name('mail-settings.edit');
+    Route::put('mail-settings', [MailSettingController::class, 'update'])->name('mail-settings.update');
+    Route::get('ai-settings', [AiSettingController::class, 'edit'])->name('ai-settings.edit');
+    Route::put('ai-settings', [AiSettingController::class, 'update'])->name('ai-settings.update');
+    Route::get('transport-settings', [TransportSettingController::class, 'edit'])->name('transport-settings.edit');
+    Route::put('transport-settings', [TransportSettingController::class, 'update'])->name('transport-settings.update');
+    Route::get('pwa-settings', [PwaSettingController::class, 'show'])->name('pwa-settings.show');
+    Route::get('pwa-settings/qr', [PwaSettingController::class, 'qr'])->name('pwa-settings.qr');
+    Route::post('home-service/lookup', [HomeServicePreorderController::class, 'lookup'])->name('home-service.lookup');
+    Route::get('home-service/mobile-app', [HomeServicePreorderController::class, 'mobileApp'])->name('home-service.mobile-app');
+    Route::get('home-service/{home_service}/mobile', [HomeServicePreorderController::class, 'mobile'])->name('home-service.mobile');
+    Route::post('home-service/{home_service}/finalize', [HomeServicePreorderController::class, 'finalize'])->name('home-service.finalize');
+    Route::get('home-service-photos/{photo}', [HomeServiceMediaController::class, 'photo'])->name('home-service-photos.show');
+    Route::get('home-service/{home_service}/signature', [HomeServiceMediaController::class, 'signature'])->name('home-service.signature');
+    Route::resource('home-service', HomeServicePreorderController::class)->parameters(['home-service'=>'home_service'])->except(['destroy']);
+    Route::post('ai/analyze-device-label', DeviceLabelAnalysisController::class)->name('ai.analyze-device-label');
+    Route::post('ai/analyze-storage-label', StorageLabelAnalysisController::class)->name('ai.analyze-storage-label');
+    Route::get('repair-order-photos/{photo}', [RepairOrderPhotoController::class, 'show'])->name('repair-order-photos.show');
+    Route::resource('users', UserController::class)->except(['show']);
+    Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+});

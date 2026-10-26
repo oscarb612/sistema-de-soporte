@@ -1,0 +1,20 @@
+{
+  "name": "Conexionweb Retiros",
+  "short_name": "Retiros",
+  "description": "Finalización móvil de retiros y preórdenes de Conexionweb",
+  "id": "/home-service/mobile-app",
+  "start_url": "/home-service/mobile-app?source=pwa",
+  "scope": "/home-service/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "background_color": "#DBEAFE",
+  "theme_color": "#174f75",
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {"name": "Retiros pendientes", "short_name": "Pendientes", "url": "/home-service/mobile-app"}
+  ],
+  "icons": [
+    {"src": "/images/home-service-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
