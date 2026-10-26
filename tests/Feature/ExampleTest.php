@@ -672,4 +672,33 @@ class ExampleTest extends TestCase
         $this->actingAs($admin)->get('/home-service/mobile-app?area=recuperadata')
             ->assertOk()->assertSee('PRE-RD-1')->assertDontSee('PRE-ST-1');
     }
+
+    public function test_home_service_pickup_can_be_deleted_in_any_status(): void
+    {
+        Storage::fake('local');
+        $company = Company::create(['name' => 'Empresa Eliminar Retiro', 'rut' => '76.555.555-5']);
+        $admin = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['company_id' => $company->id, 'rut' => '12.345.678-5', 'name' => 'Cliente Retiro']);
+        $preorder = HomeServicePreorder::create([
+            'company_id' => $company->id,
+            'client_id' => $client->id,
+            'code' => 'PRE-DELETE-1',
+            'external_quote_code' => 'RET-DELETE-1',
+            'service_area' => 'servicio_tecnico',
+            'status' => 'finalizada',
+            'address' => 'Dirección de prueba',
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->get('/home-service?area=servicio_tecnico')
+            ->assertOk()
+            ->assertSee(route('home-service.destroy', $preorder), false)
+            ->assertSee('Eliminar');
+
+        $this->actingAs($admin)->delete("/home-service/{$preorder->id}")
+            ->assertRedirect(route('home-service.index', ['area' => 'servicio_tecnico']))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('home_service_preorders', ['id' => $preorder->id]);
+    }
 }

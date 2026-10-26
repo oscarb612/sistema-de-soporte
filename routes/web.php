@@ -82,7 +82,7 @@ Route::middleware('auth')->group(function () {
     Route::post('home-service/{home_service}/finalize', [HomeServicePreorderController::class, 'finalize'])->name('home-service.finalize');
     Route::get('home-service-photos/{photo}', [HomeServiceMediaController::class, 'photo'])->name('home-service-photos.show');
     Route::get('home-service/{home_service}/signature', [HomeServiceMediaController::class, 'signature'])->name('home-service.signature');
-    Route::resource('home-service', HomeServicePreorderController::class)->parameters(['home-service'=>'home_service'])->except(['destroy']);
+    Route::resource('home-service', HomeServicePreorderController::class)->parameters(['home-service'=>'home_service']);
     Route::post('ai/analyze-device-label', DeviceLabelAnalysisController::class)->name('ai.analyze-device-label');
     Route::post('ai/analyze-storage-label', StorageLabelAnalysisController::class)->name('ai.analyze-storage-label');
     Route::get('repair-order-photos/{photo}', [RepairOrderPhotoController::class, 'show'])->name('repair-order-photos.show');
