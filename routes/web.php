@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('clients', ClientController::class)->except(['show', 'destroy']);
     Route::get('repair-orders/{repair_order}/quotes/create', [RepairQuoteController::class, 'create'])->name('repair-orders.quotes.create');
     Route::post('repair-orders/{repair_order}/quotes', [RepairQuoteController::class, 'store'])->name('repair-orders.quotes.store');
+    Route::post('repair-orders/{repair_order}/diagnosis', [RepairOrderController::class, 'storeDiagnosis'])->name('repair-orders.diagnosis.store');
     Route::post('repair-orders/{repair_order}/payments', [RepairOrderPaymentController::class, 'store'])->name('repair-orders.payments.store');
     Route::delete('repair-orders/{repair_order}/payments/{payment}', [RepairOrderPaymentController::class, 'destroy'])->name('repair-orders.payments.destroy');
     Route::get('repair-orders/search-suggestions', [RepairOrderController::class, 'searchSuggestions'])->name('repair-orders.search-suggestions');
@@ -57,6 +58,7 @@ Route::middleware('auth')->group(function () {
     Route::get('data-recovery/{data_recovery}/print', [DataRecoveryCaseController::class, 'print'])->name('data-recovery.print');
     Route::get('data-recovery/{data_recovery}/quotes/create', [DataRecoveryQuoteController::class, 'create'])->name('data-recovery.quotes.create');
     Route::post('data-recovery/{data_recovery}/quotes', [DataRecoveryQuoteController::class, 'store'])->name('data-recovery.quotes.store');
+    Route::post('data-recovery/{data_recovery}/diagnosis', [DataRecoveryCaseController::class, 'storeDiagnosis'])->name('data-recovery.diagnosis.store');
     Route::post('data-recovery/{data_recovery}/payments', [DataRecoveryPaymentController::class, 'store'])->name('data-recovery.payments.store');
     Route::delete('data-recovery/{data_recovery}/payments/{payment}', [DataRecoveryPaymentController::class, 'destroy'])->name('data-recovery.payments.destroy');
     Route::get('data-recovery-quotes/{data_recovery_quote}', [DataRecoveryQuoteController::class, 'show'])->name('data-recovery-quotes.show');

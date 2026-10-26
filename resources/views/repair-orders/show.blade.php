@@ -7,9 +7,9 @@
         <p class="muted">{{ $order->company->name }} · {{ $order->created_at->format('d-m-Y H:i') }}</p>
     </div>
     <div class="actions" style="margin:0;">
-        @if ($order->service_mode === 'diagnostico' && $order->quotes->where('quote_type','!=','closure')->where('status','!=','rechazado')->isEmpty())
+        @if ($order->service_mode === 'diagnostico' && $order->technical_diagnosis && $order->quotes->where('quote_type','!=','closure')->where('status','!=','rechazado')->isEmpty())
             <a class="btn primary" href="{{ route('repair-orders.quotes.create', $order) }}">Crear presupuesto</a>
-        @elseif ($order->service_mode === 'diagnostico')
+        @elseif ($order->service_mode === 'diagnostico' && $order->quotes->where('quote_type','!=','closure')->where('status','!=','rechazado')->isNotEmpty())
             <span class="btn disabled" aria-disabled="true">Presupuesto creado</span>
         @endif
         <a class="btn" href="{{ route('repair-orders.edit', $order) }}">Editar</a>
@@ -27,6 +27,26 @@
         </form>
     </div>
 </div>
+
+@if ($order->service_mode === 'diagnostico' && $order->quotes->where('quote_type','!=','closure')->isEmpty())
+<div class="panel" style="margin-top:16px;">
+    <h2>{{ $order->technical_diagnosis ? 'Diagnóstico registrado' : 'Registrar diagnóstico' }}</h2>
+    <p class="muted">Documenta el resultado de la revisión técnica. Al guardarlo, la orden quedará lista para generar el presupuesto.</p>
+    <form method="post" action="{{ route('repair-orders.diagnosis.store', $order) }}">
+        @csrf
+        <label>Diagnóstico técnico
+            <textarea name="technical_diagnosis" required>{{ old('technical_diagnosis', $order->technical_diagnosis) }}</textarea>
+        </label>
+        @error('technical_diagnosis')<p class="field-error">{{ $message }}</p>@enderror
+        <div class="actions"><button class="btn primary" type="submit">{{ $order->technical_diagnosis ? 'Actualizar diagnóstico' : 'Guardar diagnóstico' }}</button></div>
+    </form>
+</div>
+@elseif ($order->technical_diagnosis)
+<div class="panel" style="margin-top:16px;">
+    <h2>Diagnóstico técnico</h2>
+    <p>{!! nl2br(e($order->technical_diagnosis)) !!}</p>
+</div>
+@endif
 
 <div class="panel" style="margin-top:16px;">
     <h2>Correo y fotografías de recepción</h2>

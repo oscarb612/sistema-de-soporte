@@ -59,6 +59,26 @@ class DataRecoveryCaseController extends Controller
         ]);
     }
 
+    public function storeDiagnosis(Request $request, DataRecoveryCase $dataRecovery)
+    {
+        $this->authorizeCase($dataRecovery);
+        abort_if($dataRecovery->quotes()->where('quote_type', '!=', 'closure')->exists(), 422, 'No se puede modificar el diagnóstico desde esta etapa porque el caso ya tiene un presupuesto.');
+        $data = $request->validate(['diagnosis' => ['required', 'string']]);
+
+        DB::transaction(function () use ($dataRecovery, $data, $request) {
+            $dataRecovery->update(['diagnosis' => $data['diagnosis'], 'status' => 'diagnosticado']);
+            $dataRecovery->statusLogs()->create([
+                'user_id' => $request->user()->id,
+                'status' => 'diagnosticado',
+                'comment' => 'Diagnóstico técnico registrado.',
+            ]);
+        });
+
+        ActivityLog::record($request, 'data_recovery_diagnosed', 'Diagnóstico registrado: '.$dataRecovery->code, $dataRecovery, $dataRecovery->company_id);
+
+        return redirect()->route('data-recovery.show', $dataRecovery)->with('success', 'Diagnóstico registrado. Ya puedes generar el presupuesto.');
+    }
+
     public function edit(DataRecoveryCase $dataRecovery)
     {
         $this->authorizeCase($dataRecovery);

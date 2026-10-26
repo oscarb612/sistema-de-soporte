@@ -58,6 +58,7 @@ class RepairQuoteController extends Controller
             ]);
 
             $this->syncItems($quote, $data['items']);
+            $repairOrder->update(['technical_diagnosis' => $data['diagnosis_summary']]);
             $this->setOrderStatus($repairOrder, 'presupuesto_emitido', 'Presupuesto emitido: ' . $quote->quote_number);
         });
 

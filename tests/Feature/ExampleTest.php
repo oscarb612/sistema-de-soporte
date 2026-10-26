@@ -701,4 +701,47 @@ class ExampleTest extends TestCase
 
         $this->assertDatabaseMissing('home_service_preorders', ['id' => $preorder->id]);
     }
+
+    public function test_diagnosis_is_registered_before_quoting_in_both_service_areas(): void
+    {
+        $company = Company::create(['name' => 'Empresa Diagnóstico', 'rut' => '76.777.777-7']);
+        $admin = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+
+        $this->actingAs($admin)->post('/repair-orders', [
+            'company_id' => $company->id,
+            'client_rut' => '12.345.678-5',
+            'client_name' => 'Cliente Diagnóstico',
+            'status' => 'ingresado',
+            'reported_problem' => 'No enciende.',
+            'devices' => [['type' => 'Notebook', 'brand' => 'Lenovo']],
+        ]);
+        $order = RepairOrder::firstOrFail();
+
+        $this->actingAs($admin)->get("/repair-orders/{$order->id}")
+            ->assertOk()->assertSee('Registrar diagnóstico')->assertDontSee('Crear presupuesto');
+        $this->actingAs($admin)->post("/repair-orders/{$order->id}/diagnosis", [
+            'technical_diagnosis' => 'Falla en circuito de carga.',
+        ])->assertRedirect("/repair-orders/{$order->id}");
+        $this->assertSame('diagnosticado', $order->fresh()->status);
+        $this->assertSame('Falla en circuito de carga.', $order->fresh()->technical_diagnosis);
+        $this->actingAs($admin)->get("/repair-orders/{$order->id}")
+            ->assertOk()->assertSee('Crear presupuesto');
+
+        $client = Client::where('company_id', $company->id)->firstOrFail();
+        $case = DataRecoveryCase::create([
+            'company_id' => $company->id,
+            'client_id' => $client->id,
+            'received_by' => $admin->id,
+            'code' => 'RD-000001',
+            'status' => 'recibido',
+            'unit_type' => 'SSD',
+            'received_at' => now(),
+        ]);
+        $this->actingAs($admin)->post("/data-recovery/{$case->id}/diagnosis", [
+            'diagnosis' => 'Daño lógico recuperable.',
+        ])->assertRedirect("/data-recovery/{$case->id}");
+        $this->assertSame('diagnosticado', $case->fresh()->status);
+        $this->actingAs($admin)->get("/data-recovery/{$case->id}")
+            ->assertOk()->assertSee('Crear presupuesto')->assertSee('Daño lógico recuperable.');
+    }
 }

@@ -167,6 +167,32 @@ class RepairOrderController extends Controller
         ]);
     }
 
+    public function storeDiagnosis(Request $request, RepairOrder $repairOrder)
+    {
+        $this->authorizeCompanyAccess($repairOrder);
+        abort_if($repairOrder->service_mode !== 'diagnostico', 422, 'Esta orden no requiere diagnóstico.');
+        abort_if($repairOrder->quotes()->where('quote_type', '!=', 'closure')->exists(), 422, 'No se puede modificar el diagnóstico desde esta etapa porque la orden ya tiene un presupuesto.');
+
+        $data = $request->validate([
+            'technical_diagnosis' => ['required', 'string'],
+        ]);
+
+        DB::transaction(function () use ($repairOrder, $data) {
+            $repairOrder->update([
+                'technical_diagnosis' => $data['technical_diagnosis'],
+                'status' => 'diagnosticado',
+            ]);
+            $repairOrder->statusLogs()->create([
+                'status' => 'diagnosticado',
+                'comment' => 'Diagnóstico técnico registrado.',
+            ]);
+        });
+
+        ActivityLog::record($request, 'repair_order_diagnosed', 'Diagnóstico registrado: '.$repairOrder->code, $repairOrder);
+
+        return redirect()->route('repair-orders.show', $repairOrder)->with('success', 'Diagnóstico registrado. Ya puedes generar el presupuesto.');
+    }
+
     public function edit(RepairOrder $repairOrder)
     {
         $this->authorizeCompanyAccess($repairOrder);
