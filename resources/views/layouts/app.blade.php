@@ -75,12 +75,18 @@
     </style>
 </head>
 <body>
+@php
+    $isRecoveryArea = request()->routeIs('data-recovery.*', 'data-recovery-quotes.*')
+        || request('area') === 'recuperadata'
+        || (isset($preorder) && $preorder->service_area === 'recuperadata');
+    $homeServiceArea = $isRecoveryArea ? 'recuperadata' : 'servicio_tecnico';
+@endphp
 <header>
     <div class="wrap topbar">
         <div class="brand-group">
             <div class="area-switch" aria-label="Cambiar área">
-                <a class="area-link {{ request()->routeIs('data-recovery.*', 'data-recovery-quotes.*') ? '' : 'active' }}" href="{{ route('dashboard') }}">Servicio Técnico</a>
-                <a class="area-link recovery {{ request()->routeIs('data-recovery.*', 'data-recovery-quotes.*') ? 'active' : '' }}" href="{{ route('data-recovery.index') }}">Recuperadata</a>
+                <a class="area-link {{ $isRecoveryArea ? '' : 'active' }}" href="{{ route('dashboard') }}">Servicio Técnico</a>
+                <a class="area-link recovery {{ $isRecoveryArea ? 'active' : '' }}" href="{{ route('data-recovery.index') }}">Recuperadata</a>
             </div>
             @auth
                 <span class="user-pill">
@@ -93,14 +99,14 @@
         </div>
         @auth
             <nav>
-                <a href="{{ request()->routeIs('data-recovery.*', 'data-recovery-quotes.*') ? route('data-recovery.dashboard') : route('dashboard') }}"><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Panel</a>
-                @if(request()->routeIs('data-recovery.*', 'data-recovery-quotes.*'))
+                <a href="{{ $isRecoveryArea ? route('data-recovery.dashboard') : route('dashboard') }}">Panel<svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></a>
+                @if($isRecoveryArea)
                     <a href="{{ route('data-recovery.index') }}"><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7.5h16v12H4z"/><path d="M8 7.5V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2.5M4 12h16"/></svg>Casos</a>
                     <a href="{{ route('data-recovery.create') }}"><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Nueva recepción</a>
                 @else
                     <a href="{{ route('repair-orders.index') }}"><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3h10v4H7z"/><path d="M5 5h14v16H5zM8 11h8M8 15h8"/></svg>Órdenes</a>
                 @endif
-                <a href="{{ route('home-service.index') }}"><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>Retiros</a>
+                <a href="{{ route('home-service.index', ['area' => $homeServiceArea]) }}"><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>Retiros</a>
                 <details class="menu-dropdown">
                     <summary><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.12-1.28l2-1.55-2-3.46-2.47 1A7 7 0 0 0 14.2 5.4L13.86 3h-4l-.34 2.4a7 7 0 0 0-2.2 1.3l-2.48-1-2 3.46 2 1.55A7 7 0 0 0 4.72 12a7 7 0 0 0 .12 1.28l-2 1.55 2 3.46 2.47-1a7 7 0 0 0 2.21 1.3l.34 2.4h4l.34-2.4a7 7 0 0 0 2.2-1.3l2.48 1 2-3.46-2-1.55A7 7 0 0 0 19 12z"/></svg>Configuración <span class="menu-caret" aria-hidden="true">&#9662;</span></summary>
                     <div class="menu-dropdown-content">

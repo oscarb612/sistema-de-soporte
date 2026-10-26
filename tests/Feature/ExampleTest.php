@@ -654,4 +654,22 @@ class ExampleTest extends TestCase
         $this->assertEquals(20000,(float)$closure->total_amount);
         $this->assertSame('Diagnóstico (cobro por presupuesto no aprobado)',$closure->items->first()->description);
     }
+
+    public function test_home_service_pickups_are_separated_by_business_area(): void
+    {
+        $company=Company::create(['name'=>'Empresa Retiros Separados','rut'=>'76.444.444-4']);
+        $admin=User::factory()->create(['company_id'=>$company->id,'role'=>'admin','is_active'=>true]);
+        $client=Client::create(['company_id'=>$company->id,'rut'=>'12.345.678-5','name'=>'Cliente Retiros']);
+        foreach ([['PRE-ST-1','RET-ST-1','servicio_tecnico'],['PRE-RD-1','RET-RD-1','recuperadata']] as [$code,$external,$area]) {
+            HomeServicePreorder::create(['company_id'=>$company->id,'client_id'=>$client->id,'code'=>$code,'external_quote_code'=>$external,'service_area'=>$area,'address'=>'Dirección de prueba']);
+        }
+
+        $this->actingAs($admin)->get('/home-service?area=servicio_tecnico')
+            ->assertOk()->assertSee('Retiros de Servicio Técnico')->assertSee('PRE-ST-1')->assertDontSee('PRE-RD-1');
+        $this->actingAs($admin)->get('/home-service?area=recuperadata')
+            ->assertOk()->assertSee('Retiros de Recuperadata')->assertSee('PRE-RD-1')->assertDontSee('PRE-ST-1')
+            ->assertSee(route('home-service.create',['area'=>'recuperadata']),false);
+        $this->actingAs($admin)->get('/home-service/mobile-app?area=recuperadata')
+            ->assertOk()->assertSee('PRE-RD-1')->assertDontSee('PRE-ST-1');
+    }
 }

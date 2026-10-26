@@ -1,6 +1,6 @@
 @extends('layouts.mobile')
 @section('content')
-<section class="mobile-title"><div><p class="eyebrow">Trabajo en terreno</p><h1>Retiros pendientes</h1><p class="muted">Selecciona una visita para registrar el equipo, fotografías y firma.</p></div><span class="count">{{$preorders->count()}}</span></section>
+<section class="mobile-title"><div><p class="eyebrow">Trabajo en terreno</p><h1>Retiros de {{$area==='recuperadata'?'Recuperadata':'Servicio Técnico'}}</h1><p class="muted">Selecciona una visita para registrar el equipo, fotografías y firma.</p></div><span class="count">{{$preorders->count()}}</span></section>
 <div class="quick-filter"><button class="filter active" data-filter="all">Todos</button><button class="filter" data-filter="today">Hoy</button><button class="filter" data-filter="mine">Asignados a mí</button></div>
 <section class="jobs" id="jobs">
 @forelse($preorders as $p)

@@ -23,14 +23,14 @@
     </style>
 </head>
 <body>
-<header class="appbar"><a class="app-brand" href="{{ route('home-service.mobile-app') }}"><img src="{{ asset('images/home-service-icon.svg') }}" alt=""><span>Conexionweb Retiros<small>Aplicación de técnicos</small></span></a><span class="user">{{ auth()->user()->name }}</span></header>
+<header class="appbar"><a class="app-brand" href="{{ route('home-service.mobile-app', ['area' => request('area', 'servicio_tecnico')]) }}"><img src="{{ asset('images/home-service-icon.svg') }}" alt=""><span>Conexionweb Retiros<small>Aplicación de técnicos</small></span></a><span class="user">{{ auth()->user()->name }}</span></header>
 <main>
     @if(session('success'))<div class="alert success">{{session('success')}}</div>@endif
     @if($errors->any())<div class="alert error"><b>Revisa los datos ingresados.</b><ul>@foreach($errors->all() as $error)<li>{{$error}}</li>@endforeach</ul></div>@endif
     @yield('content')
 </main>
 <nav class="bottom-nav" aria-label="Navegación de la aplicación">
-    <a class="{{request()->routeIs('home-service.mobile-app')?'active':''}}" href="{{route('home-service.mobile-app')}}"><span class="icon">⌂</span>Retiros</a>
+    <a class="{{request()->routeIs('home-service.mobile-app')?'active':''}}" href="{{route('home-service.mobile-app', ['area' => request('area', 'servicio_tecnico')])}}"><span class="icon">⌂</span>Retiros</a>
     <button type="button" onclick="location.reload()"><span class="icon">↻</span>Actualizar</button>
     <form method="post" action="{{route('logout')}}">@csrf<button type="submit"><span class="icon">⇥</span>Salir</button></form>
 </nav>
