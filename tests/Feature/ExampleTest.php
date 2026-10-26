@@ -634,9 +634,15 @@ class ExampleTest extends TestCase
     {
         $company=Company::create(['name'=>'Empresa PWA','rut'=>'76.222.222-2']);
         $admin=User::factory()->create(['company_id'=>$company->id,'role'=>'admin','is_active'=>true]);
-        $this->actingAs($admin)->get('/pwa-settings')->assertOk()->assertSee('Aplicación móvil de retiros')->assertSee('Instalar aplicación')->assertSee('Agregar a inicio')->assertSee(route('home-service.index'));
+        $this->actingAs($admin)->get('/pwa-settings')->assertOk()->assertSee('Aplicación móvil de retiros')->assertSee('Abrir aplicación para instalar')->assertSee('Agregar a inicio')->assertSee(route('home-service.index'));
+        $this->actingAs($admin)->get('/home-service/mobile-app')->assertOk()->assertSee('pwa-install-button',false);
         $qr=$this->actingAs($admin)->get('/pwa-settings/qr');
         $qr->assertOk()->assertHeader('content-type','image/svg+xml')->assertSee('<svg',false);
+        $manifest=json_decode(file_get_contents(public_path('home-service-manifest.webmanifest')),true,512,JSON_THROW_ON_ERROR);
+        $this->assertSame('standalone',$manifest['display']);
+        $this->assertCount(4,$manifest['icons']);
+        foreach ($manifest['icons'] as $icon) $this->assertFileExists(public_path(ltrim($icon['src'],'/')));
+        $this->assertFileExists(public_path('home-service-offline.html'));
     }
 
     public function test_rejected_recovery_quote_creates_diagnostic_closure_quote(): void

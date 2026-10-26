@@ -10,6 +10,7 @@
     <meta name="apple-mobile-web-app-title" content="Retiros">
     <link rel="manifest" href="{{ asset('home-service-manifest.webmanifest') }}">
     <link rel="icon" href="{{ asset('images/home-service-icon.svg') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/home-service-icon-180.png') }}">
     <title>{{ $title ?? 'Conexionweb Retiros' }}</title>
     <style>
         :root{--brand:#174f75;--brand2:#116466;--bg:#dbeafe;--panel:#fff;--ink:#172033;--muted:#64748b;--line:#d8e1eb;--danger:#b42318;--safe-bottom:env(safe-area-inset-bottom,0px)}
@@ -19,6 +20,7 @@
         .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;font-weight:700;cursor:pointer}.btn.primary{background:var(--brand2);border-color:var(--brand2);color:#fff}.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
         .form-grid{display:grid;grid-template-columns:1fr;gap:13px}label{display:block;font-weight:700;margin-bottom:5px}input,select,textarea{width:100%;min-height:46px;padding:10px;border:1px solid #b9c7d6;border-radius:9px;background:#fff;font:inherit}textarea{min-height:96px}.full{grid-column:1/-1}.alert{padding:12px;border-radius:10px;margin-bottom:12px}.alert.success{background:#e8f5ee;color:#135c37}.alert.error{background:#fff0f0;color:var(--danger)}.badge{display:inline-flex;padding:5px 9px;border-radius:99px;background:#e8f0f6;color:#405064;font-size:12px;font-weight:700}
         .bottom-nav{position:fixed;z-index:40;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);padding:6px 8px calc(6px + var(--safe-bottom));background:#fff;border-top:1px solid var(--line);box-shadow:0 -5px 18px #17203318}.bottom-nav a,.bottom-nav button{width:100%;border:0;background:none;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:inherit;font-size:11px;font-weight:700;color:var(--muted)}.bottom-nav .active{color:var(--brand)}.bottom-nav .icon{font-size:22px;line-height:1}.bottom-nav form{margin:0}
+        .install-card{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:13px 14px;border-radius:12px;background:#fff7d6;border:1px solid #e8cf74}.install-card p{margin:0;font-size:13px}.install-card .btn{flex:none}
         @media(min-width:620px){.form-grid{grid-template-columns:repeat(2,1fr)}}
     </style>
 </head>
@@ -27,6 +29,7 @@
 <main>
     @if(session('success'))<div class="alert success">{{session('success')}}</div>@endif
     @if($errors->any())<div class="alert error"><b>Revisa los datos ingresados.</b><ul>@foreach($errors->all() as $error)<li>{{$error}}</li>@endforeach</ul></div>@endif
+    <aside id="pwa-install-card" class="install-card" hidden><p id="pwa-install-message"><b>Instala Conexionweb Retiros</b><br>Úsala como una aplicación en este teléfono.</p><button id="pwa-install-button" class="btn primary" type="button">Instalar</button></aside>
     @yield('content')
 </main>
 <nav class="bottom-nav" aria-label="Navegación de la aplicación">
@@ -34,7 +37,7 @@
     <button type="button" onclick="location.reload()"><span class="icon">↻</span>Actualizar</button>
     <form method="post" action="{{route('logout')}}">@csrf<button type="submit"><span class="icon">⇥</span>Salir</button></form>
 </nav>
-<script>if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWorker.register('{{asset('home-service-sw.js')}}',{scope:'/home-service/'}))}</script>
+<script>(()=>{const card=document.getElementById('pwa-install-card'),button=document.getElementById('pwa-install-button'),message=document.getElementById('pwa-install-message'),standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true,isIos=/iphone|ipad|ipod/i.test(navigator.userAgent);let promptEvent=null;if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('{{asset('home-service-sw.js')}}',{scope:'/home-service/'}));if(!standalone&&isIos){card.hidden=false;button.textContent='Cómo instalar';button.onclick=()=>alert('En Safari, pulsa Compartir y luego “Agregar a inicio”.')}addEventListener('beforeinstallprompt',event=>{event.preventDefault();promptEvent=event;if(!standalone){card.hidden=false;button.textContent='Instalar';button.onclick=async()=>{promptEvent.prompt();await promptEvent.userChoice;promptEvent=null;card.hidden=true}}});addEventListener('appinstalled',()=>{card.hidden=true;promptEvent=null})})()</script>
 @stack('scripts')
 </body>
 </html>
