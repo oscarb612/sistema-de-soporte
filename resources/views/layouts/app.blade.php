@@ -102,7 +102,6 @@
                 <a href="{{ $isRecoveryArea ? route('data-recovery.dashboard') : route('dashboard') }}">Panel<svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></a>
                 @if($isRecoveryArea)
                     <a href="{{ route('data-recovery.index') }}"><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7.5h16v12H4z"/><path d="M8 7.5V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2.5M4 12h16"/></svg>Casos</a>
-                    <a href="{{ route('data-recovery.create') }}"><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Nueva recepción</a>
                 @else
                     <a href="{{ route('repair-orders.index') }}"><svg class="menu-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3h10v4H7z"/><path d="M5 5h14v16H5zM8 11h8M8 15h8"/></svg>Órdenes</a>
                 @endif
