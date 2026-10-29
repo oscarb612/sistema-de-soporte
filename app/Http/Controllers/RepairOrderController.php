@@ -126,6 +126,8 @@ class RepairOrderController extends Controller
             $this->syncDirectServiceItem($order, $data);
         });
 
+        $successMessage = 'Orden de reparación creada correctamente.';
+
         if ($order) {
             ActivityLog::record($request, 'repair_order_created', 'Orden creada: ' . $order->code, $order);
             try {
@@ -133,13 +135,18 @@ class RepairOrderController extends Controller
                     $photoService->store($order, $photo, (int) $request->input('label_photo_index', -1) === $index);
                 }
                 $this->sendReceptionEmail($order->fresh(), $request);
+                $order->refresh();
+
+                if ($order->email_status === 'enviado') {
+                    $successMessage .= ' Correo enviado exitosamente a '.$order->client->email.'.';
+                }
             } catch (Throwable $error) {
                 report($error);
                 $order->update(['email_status' => 'error', 'email_error' => mb_substr($error->getMessage(), 0, 1000)]);
             }
         }
 
-        return redirect()->route('repair-orders.index')->with('success', 'Orden de reparación creada correctamente.');
+        return redirect()->route('repair-orders.index')->with('success', $successMessage);
     }
 
     public function show(RepairOrder $repairOrder)
@@ -228,7 +235,10 @@ class RepairOrderController extends Controller
         $this->authorizeCompanyAccess($repairOrder);
         try {
             $this->sendReceptionEmail($repairOrder, $request);
-            return redirect()->route('repair-orders.show', $repairOrder)->with('success', 'Comprobante enviado al correo del cliente.');
+            return redirect()->route('repair-orders.show', $repairOrder)->with(
+                'success',
+                'Comprobante enviado exitosamente a '.$repairOrder->fresh()->client->email.'.'
+            );
         } catch (Throwable $error) {
             report($error);
             return redirect()->route('repair-orders.show', $repairOrder)->withErrors(['email' => 'No fue posible enviar el correo: '.$error->getMessage()]);

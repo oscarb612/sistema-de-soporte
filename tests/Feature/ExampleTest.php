@@ -517,7 +517,8 @@ class ExampleTest extends TestCase
             'label_photo_index' => '0',
             'photos' => [UploadedFile::fake()->image('etiqueta.jpg', 2000, 1200)],
             'devices' => [['type' => 'Notebook', 'brand' => 'HP']],
-        ])->assertRedirect('/repair-orders');
+        ])->assertRedirect('/repair-orders')
+            ->assertSessionHas('success', 'Orden de reparación creada correctamente. Correo enviado exitosamente a cliente@example.com.');
 
         $order = RepairOrder::with('photos')->firstOrFail();
         $this->assertCount(1, $order->photos);
