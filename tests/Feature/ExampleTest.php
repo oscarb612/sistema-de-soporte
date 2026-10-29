@@ -740,13 +740,25 @@ class ExampleTest extends TestCase
         $diagnosisPhotos = $order->photos()->where('category', 'diagnostico')->get();
         $this->assertCount(3, $diagnosisPhotos);
         $diagnosisPhotos->each(fn ($photo) => Storage::disk('local')->assertExists($photo->path));
-        $this->actingAs($admin)->get("/repair-orders/{$order->id}/print")
-            ->assertOk()
-            ->assertSee('Diagnóstico técnico')
-            ->assertSee(route('repair-order-photos.show', $diagnosisPhotos->first()), false);
         $this->actingAs($admin)->get("/repair-orders/{$order->id}")
             ->assertOk()->assertSee('Crear presupuesto');
-
+        $this->actingAs($admin)->get("/repair-orders/{$order->id}/print")
+            ->assertOk()
+            ->assertDontSee(route('repair-order-photos.show', $diagnosisPhotos->first()), false);
+        $quote = RepairQuote::create([
+            'company_id' => $company->id,
+            'repair_order_id' => $order->id,
+            'quote_number' => 'PRES-DIAG-001',
+            'status' => 'emitido',
+            'diagnosis_summary' => 'Falla en circuito de carga.',
+            'net_amount' => 100000,
+            'tax_amount' => 19000,
+            'total_amount' => 119000,
+        ]);
+        $this->actingAs($admin)->get("/repair-quotes/{$quote->id}/print")
+            ->assertOk()
+            ->assertSee('Diagnóstico')
+            ->assertSee(route('repair-order-photos.show', $diagnosisPhotos->first()), false);
         $client = Client::where('company_id', $company->id)->firstOrFail();
         $case = DataRecoveryCase::create([
             'company_id' => $company->id,

@@ -88,6 +88,7 @@ class RepairQuoteController extends Controller
                 'repairOrder.company',
                 'repairOrder.device',
                 'repairOrder.devices',
+                'repairOrder.photos',
             ]),
         ]);
     }

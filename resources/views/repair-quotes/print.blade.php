@@ -21,6 +21,9 @@
         .grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 20px; }
         .field { margin:2px 0; }
         .diagnosis { min-height:66px; padding:10px; border:1px solid #9ca3af; white-space:pre-wrap; }
+        .diagnosis-photos { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:8px; }
+        .diagnosis-photo { height:46mm; padding:4px; border:1px solid #9ca3af; text-align:center; }
+        .diagnosis-photo img { width:100%; height:100%; object-fit:contain; }
         table { width:100%; border-collapse:collapse; }
         th, td { padding:7px; border:1px solid #9ca3af; text-align:left; vertical-align:top; }
         th { background:#f3f4f6; }
@@ -46,6 +49,7 @@
 @php
     $order = $quote->repairOrder;
     $devices = $order->devices->isNotEmpty() ? $order->devices : collect([$order->device])->filter();
+    $diagnosisPhotos = $order->photos->where('category', 'diagnostico')->take(3);
 @endphp
 
 <article class="sheet">
@@ -100,6 +104,15 @@
     <section class="section">
         <h2>Diagnóstico</h2>
         <div class="diagnosis">{{ $quote->diagnosis_summary }}</div>
+        @if($diagnosisPhotos->isNotEmpty())
+            <div class="diagnosis-photos">
+                @foreach($diagnosisPhotos as $photo)
+                    <div class="diagnosis-photo">
+                        <img src="{{ route('repair-order-photos.show', $photo) }}" alt="Imagen de diagnóstico {{ $loop->iteration }}">
+                    </div>
+                @endforeach
+            </div>
+        @endif
     </section>
 
     <section class="section">
