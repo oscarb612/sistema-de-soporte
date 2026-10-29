@@ -32,12 +32,18 @@
 <div class="panel" style="margin-top:16px;">
     <h2>{{ $order->technical_diagnosis ? 'Diagnóstico registrado' : 'Registrar diagnóstico' }}</h2>
     <p class="muted">Documenta el resultado de la revisión técnica. Al guardarlo, la orden quedará lista para generar el presupuesto.</p>
-    <form method="post" action="{{ route('repair-orders.diagnosis.store', $order) }}">
+    <form method="post" action="{{ route('repair-orders.diagnosis.store', $order) }}" enctype="multipart/form-data">
         @csrf
         <label>Diagnóstico técnico
             <textarea name="technical_diagnosis" required>{{ old('technical_diagnosis', $order->technical_diagnosis) }}</textarea>
         </label>
         @error('technical_diagnosis')<p class="field-error">{{ $message }}</p>@enderror
+        <label style="margin-top:12px;">Imágenes del diagnóstico (máximo 3)
+            <input type="file" name="diagnosis_photos[]" accept="image/jpeg,image/png,image/webp" multiple>
+        </label>
+        <p class="muted">Puedes adjuntar hasta 3 imágenes JPG, PNG o WebP de hasta 10 MB cada una.</p>
+        @error('diagnosis_photos')<p class="field-error">{{ $message }}</p>@enderror
+        @error('diagnosis_photos.*')<p class="field-error">{{ $message }}</p>@enderror
         <div class="actions"><button class="btn primary" type="submit">{{ $order->technical_diagnosis ? 'Actualizar diagnóstico' : 'Guardar diagnóstico' }}</button></div>
     </form>
 </div>

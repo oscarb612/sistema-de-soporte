@@ -174,7 +174,7 @@ class RepairOrderController extends Controller
         ]);
     }
 
-    public function storeDiagnosis(Request $request, RepairOrder $repairOrder)
+    public function storeDiagnosis(Request $request, RepairOrder $repairOrder, OrderPhotoService $photoService)
     {
         $this->authorizeCompanyAccess($repairOrder);
         abort_if($repairOrder->service_mode !== 'diagnostico', 422, 'Esta orden no requiere diagnóstico.');
@@ -182,7 +182,17 @@ class RepairOrderController extends Controller
 
         $data = $request->validate([
             'technical_diagnosis' => ['required', 'string'],
+            'diagnosis_photos' => ['nullable', 'array', 'max:3'],
+            'diagnosis_photos.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
         ]);
+
+        $existingPhotos = $repairOrder->photos()->where('category', 'diagnostico')->count();
+        $newPhotos = count($request->file('diagnosis_photos', []));
+        abort_if($existingPhotos + $newPhotos > 3, 422, 'El diagnóstico permite un máximo de 3 imágenes.');
+
+        foreach ($request->file('diagnosis_photos', []) as $photo) {
+            $photoService->storeDiagnosis($repairOrder, $photo);
+        }
 
         DB::transaction(function () use ($repairOrder, $data) {
             $repairOrder->update([

@@ -30,6 +30,9 @@
         .totals td:first-child { font-weight:700; }
         .total-row { font-size:14px; font-weight:700; }
         .notice { padding:9px; border:1px solid #9ca3af; background:#f9fafb; }
+        .diagnosis-photos { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+        .diagnosis-photo { height:46mm; padding:4px; border:1px solid #9ca3af; text-align:center; }
+        .diagnosis-photo img { width:100%; height:100%; object-fit:contain; }
         .terms { margin:5px 0 0; padding-left:18px; font-size:10px; }
         .terms li { margin:2px 0; }
         .signatures { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:24px; break-inside:avoid; }
@@ -144,6 +147,23 @@
             <p><strong>Problema informado:</strong> {{ $order->reported_problem ?: 'Sin información' }}</p>
             <p><strong>Observaciones iniciales:</strong> {{ $order->initial_observations ?: 'Sin observaciones' }}</p>
             <p class="notice">El equipo se recibe para diagnóstico. El valor final de la reparación será informado mediante un presupuesto y requerirá aprobación del cliente antes de iniciar los trabajos. Esta recepción no implica la aprobación de una reparación.</p>
+        </section>
+    @endif
+
+    @php($diagnosisPhotos = $order->photos->where('category', 'diagnostico')->take(3))
+    @if($order->technical_diagnosis)
+        <section class="section">
+            <h2>Diagnóstico técnico</h2>
+            <p style="white-space:pre-wrap;">{{ $order->technical_diagnosis }}</p>
+            @if($diagnosisPhotos->isNotEmpty())
+                <div class="diagnosis-photos">
+                    @foreach($diagnosisPhotos as $photo)
+                        <div class="diagnosis-photo">
+                            <img src="{{ route('repair-order-photos.show', $photo) }}" alt="Imagen de diagnóstico {{ $loop->iteration }}">
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </section>
     @endif
 

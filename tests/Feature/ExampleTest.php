@@ -711,6 +711,7 @@ class ExampleTest extends TestCase
 
     public function test_diagnosis_is_registered_before_quoting_in_both_service_areas(): void
     {
+        Storage::fake('local');
         $company = Company::create(['name' => 'Empresa Diagnóstico', 'rut' => '76.777.777-7']);
         $admin = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
 
@@ -728,9 +729,21 @@ class ExampleTest extends TestCase
             ->assertOk()->assertSee('Registrar diagnóstico')->assertDontSee('Crear presupuesto');
         $this->actingAs($admin)->post("/repair-orders/{$order->id}/diagnosis", [
             'technical_diagnosis' => 'Falla en circuito de carga.',
+            'diagnosis_photos' => [
+                UploadedFile::fake()->image('placa.jpg', 1800, 1200),
+                UploadedFile::fake()->image('conector.png', 1200, 900),
+                UploadedFile::fake()->image('medicion.webp', 900, 1200),
+            ],
         ])->assertRedirect("/repair-orders/{$order->id}");
         $this->assertSame('diagnosticado', $order->fresh()->status);
         $this->assertSame('Falla en circuito de carga.', $order->fresh()->technical_diagnosis);
+        $diagnosisPhotos = $order->photos()->where('category', 'diagnostico')->get();
+        $this->assertCount(3, $diagnosisPhotos);
+        $diagnosisPhotos->each(fn ($photo) => Storage::disk('local')->assertExists($photo->path));
+        $this->actingAs($admin)->get("/repair-orders/{$order->id}/print")
+            ->assertOk()
+            ->assertSee('Diagnóstico técnico')
+            ->assertSee(route('repair-order-photos.show', $diagnosisPhotos->first()), false);
         $this->actingAs($admin)->get("/repair-orders/{$order->id}")
             ->assertOk()->assertSee('Crear presupuesto');
 

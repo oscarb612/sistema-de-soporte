@@ -12,6 +12,16 @@ class OrderPhotoService
 {
     public function store(RepairOrder $order, UploadedFile $file, bool $isLabel = false)
     {
+        return $this->storeWithCategory($order, $file, $isLabel ? 'etiqueta' : 'recepcion');
+    }
+
+    public function storeDiagnosis(RepairOrder $order, UploadedFile $file)
+    {
+        return $this->storeWithCategory($order, $file, 'diagnostico');
+    }
+
+    private function storeWithCategory(RepairOrder $order, UploadedFile $file, string $category)
+    {
         $contents = file_get_contents($file->getRealPath());
         $source = @imagecreatefromstring($contents ?: '');
         if (! $source) throw new RuntimeException('No fue posible procesar una de las fotografías.');
@@ -37,7 +47,7 @@ class OrderPhotoService
             'device_id' => $order->device_id,
             'path' => $path,
             'original_name' => $file->getClientOriginalName(),
-            'category' => $isLabel ? 'etiqueta' : 'recepcion',
+            'category' => $category,
             'width' => $newWidth,
             'height' => $newHeight,
             'size' => strlen($webp),
