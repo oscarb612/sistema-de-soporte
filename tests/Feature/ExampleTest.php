@@ -776,4 +776,30 @@ class ExampleTest extends TestCase
         $this->actingAs($admin)->get("/data-recovery/{$case->id}")
             ->assertOk()->assertSee('Crear presupuesto')->assertSee('Daño lógico recuperable.');
     }
+
+    public function test_home_service_form_looks_up_existing_clients_by_rut(): void
+    {
+        $company = Company::create(['name' => 'Empresa Retiros', 'rut' => '76.888.888-5']);
+        $admin = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        Client::create([
+            'company_id' => $company->id,
+            'rut' => '12.345.678-5',
+            'name' => 'Cliente existente',
+            'phone' => '+56 9 1234 5678',
+            'email' => 'existente@example.com',
+            'address' => 'Dirección existente 123',
+        ]);
+
+        $this->actingAs($admin)->get('/home-service/create')
+            ->assertOk()
+            ->assertSee('id="client-rut"', false)
+            ->assertSee(route('clients.lookup-by-rut'), false);
+
+        $this->actingAs($admin)->getJson('/clients/lookup-by-rut?company_id='.$company->id.'&rut=12.345.678-5')
+            ->assertOk()
+            ->assertJsonPath('found', true)
+            ->assertJsonPath('client.name', 'Cliente existente')
+            ->assertJsonPath('client.email', 'existente@example.com')
+            ->assertJsonPath('client.address', 'Dirección existente 123');
+    }
 }
