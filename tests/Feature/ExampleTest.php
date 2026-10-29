@@ -802,4 +802,64 @@ class ExampleTest extends TestCase
             ->assertJsonPath('client.email', 'existente@example.com')
             ->assertJsonPath('client.address', 'Dirección existente 123');
     }
+
+    public function test_home_service_visit_can_close_without_creating_an_order(): void
+    {
+        $company = Company::create(['name' => 'Empresa Visitas', 'rut' => '76.999.999-9']);
+        $admin = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['company_id' => $company->id, 'rut' => '12.345.678-5', 'name' => 'Cliente visita']);
+        $preorder = HomeServicePreorder::create([
+            'company_id' => $company->id,
+            'client_id' => $client->id,
+            'code' => 'PRE-AUSENTE-1',
+            'external_quote_code' => 'RET-AUSENTE-1',
+            'service_area' => 'servicio_tecnico',
+            'status' => 'agendada',
+            'address' => 'Dirección de visita',
+        ]);
+
+        $this->actingAs($admin)->get("/home-service/{$preorder->id}/mobile")
+            ->assertOk()
+            ->assertSee('Cliente ausente')
+            ->assertSee('Otro')
+            ->assertSee('Cerrar visita sin retiro');
+
+        $this->actingAs($admin)->post("/home-service/{$preorder->id}/close-without-pickup", [
+            'outcome' => 'cliente_ausente',
+        ])->assertRedirect(route('home-service.mobile-app', ['area' => 'servicio_tecnico']));
+
+        $preorder->refresh();
+        $this->assertSame('cliente_ausente', $preorder->status);
+        $this->assertNotNull($preorder->completed_at);
+        $this->assertNull($preorder->repair_order_id);
+        $this->assertNull($preorder->data_recovery_case_id);
+    }
+
+    public function test_other_visit_outcome_requires_details(): void
+    {
+        $company = Company::create(['name' => 'Empresa Otro', 'rut' => '77.111.111-9']);
+        $admin = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['company_id' => $company->id, 'rut' => '12.345.678-5', 'name' => 'Cliente visita']);
+        $preorder = HomeServicePreorder::create([
+            'company_id' => $company->id,
+            'client_id' => $client->id,
+            'code' => 'PRE-OTRO-1',
+            'external_quote_code' => 'RET-OTRO-1',
+            'service_area' => 'servicio_tecnico',
+            'status' => 'agendada',
+            'address' => 'Dirección de visita',
+        ]);
+
+        $this->actingAs($admin)->post("/home-service/{$preorder->id}/close-without-pickup", [
+            'outcome' => 'otro',
+        ])->assertSessionHasErrors('outcome_details');
+
+        $this->actingAs($admin)->post("/home-service/{$preorder->id}/close-without-pickup", [
+            'outcome' => 'otro',
+            'outcome_details' => 'La dirección estaba inaccesible por cierre de calle.',
+        ])->assertRedirect();
+
+        $this->assertSame('otro', $preorder->fresh()->status);
+        $this->assertSame('La dirección estaba inaccesible por cierre de calle.', $preorder->fresh()->outcome_details);
+    }
 }

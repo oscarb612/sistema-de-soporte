@@ -82,6 +82,7 @@ Route::middleware('auth')->group(function () {
     Route::get('home-service/mobile-app', [HomeServicePreorderController::class, 'mobileApp'])->name('home-service.mobile-app');
     Route::get('home-service/{home_service}/mobile', [HomeServicePreorderController::class, 'mobile'])->name('home-service.mobile');
     Route::post('home-service/{home_service}/finalize', [HomeServicePreorderController::class, 'finalize'])->name('home-service.finalize');
+    Route::post('home-service/{home_service}/close-without-pickup', [HomeServicePreorderController::class, 'closeWithoutPickup'])->name('home-service.close-without-pickup');
     Route::get('home-service-photos/{photo}', [HomeServiceMediaController::class, 'photo'])->name('home-service-photos.show');
     Route::get('home-service/{home_service}/signature', [HomeServiceMediaController::class, 'signature'])->name('home-service.signature');
     Route::resource('home-service', HomeServicePreorderController::class)->parameters(['home-service'=>'home_service']);
