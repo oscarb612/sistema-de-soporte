@@ -44,6 +44,9 @@
         .grid { display:grid; gap:16px; }
         .stats { grid-template-columns:repeat(4, minmax(0, 1fr)); }
         .stat, .panel, .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px; }
+        .stat { position:relative; min-height:112px; padding-right:76px; overflow:hidden; }
+        .stat-icon { position:absolute; top:18px; right:18px; display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; background:#e7f3f1; color:var(--brand); }
+        .stat-icon svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
         .stat strong { display:block; font-size:30px; margin-top:8px; }
         table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
         th, td { text-align:left; padding:12px; border-bottom:1px solid var(--line); vertical-align:top; }
