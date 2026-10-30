@@ -335,6 +335,43 @@ class ExampleTest extends TestCase
         $this->assertSame('diagnosticado', $order->fresh()->status);
     }
 
+    public function test_fully_paid_approved_quote_finalizes_the_order(): void
+    {
+        $company = Company::create(['name' => 'Empresa Pago Final', 'rut' => '76.123.456-0']);
+        $user = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+
+        $this->actingAs($user)->post('/repair-orders', [
+            'company_id' => $company->id,
+            'client_rut' => '12.345.678-5',
+            'client_name' => 'Cliente Pago Final',
+            'status' => 'diagnosticado',
+            'reported_problem' => 'Equipo no inicia.',
+            'devices' => [['type' => 'Notebook', 'brand' => 'Acer']],
+        ]);
+
+        $order = RepairOrder::firstOrFail();
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/quotes", [
+            'diagnosis_summary' => 'Requiere reparacion.',
+            'items' => [['type' => 'mano_obra', 'description' => 'Reparacion', 'quantity' => 1, 'unit_price' => 10000]],
+        ]);
+        $quote = RepairQuote::firstOrFail();
+        $this->actingAs($user)->post("/repair-quotes/{$quote->id}/approve");
+
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
+            'repair_quote_id' => $quote->id,
+            'payment_type' => 'pago_final',
+            'payment_method' => 'transferencia',
+            'amount' => 11900,
+            'payment_date' => '2026-10-30',
+        ])->assertRedirect("/repair-orders/{$order->id}");
+
+        $this->assertSame('finalizado', $order->fresh()->status);
+        $this->assertDatabaseHas('repair_order_status_logs', [
+            'repair_order_id' => $order->id,
+            'status' => 'finalizado',
+        ]);
+    }
+
     public function test_repair_order_can_be_deleted(): void
     {
         $company = Company::create([

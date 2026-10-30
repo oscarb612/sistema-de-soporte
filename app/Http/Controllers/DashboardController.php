@@ -20,7 +20,7 @@ class DashboardController extends Controller
             'companiesCount' => $user->role === 'super_admin' ? Company::count() : 1,
             'clientsCount' => $companyScope(Client::query())->count(),
             'ordersCount' => $companyScope(RepairOrder::query())->count(),
-            'pendingOrdersCount' => $companyScope(RepairOrder::whereNotIn('status', ['entregado', 'cancelado']))->count(),
+            'pendingOrdersCount' => $companyScope(RepairOrder::whereNotIn('status', ['finalizado', 'entregado', 'cancelado']))->count(),
             'recentOrders' => $companyScope(RepairOrder::with(['company', 'client', 'device']))->latest()->take(8)->get(),
         ]);
     }

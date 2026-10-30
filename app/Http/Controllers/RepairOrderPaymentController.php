@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Models\RepairOrder;
 use App\Models\RepairOrderPayment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class RepairOrderPaymentController extends Controller
@@ -31,12 +32,18 @@ class RepairOrderPaymentController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $payment = RepairOrderPayment::create([
-            ...$data,
-            'company_id' => $repairOrder->company_id,
-            'repair_order_id' => $repairOrder->id,
-            'created_by' => $request->user()->id,
-        ]);
+        $payment = DB::transaction(function () use ($data, $repairOrder, $request) {
+            $payment = RepairOrderPayment::create([
+                ...$data,
+                'company_id' => $repairOrder->company_id,
+                'repair_order_id' => $repairOrder->id,
+                'created_by' => $request->user()->id,
+            ]);
+
+            $this->finalizeIfFullyPaid($repairOrder, $payment);
+
+            return $payment;
+        });
 
         ActivityLog::record(
             $request,
@@ -75,6 +82,32 @@ class RepairOrderPaymentController extends Controller
 
         if ($user->role !== 'super_admin' && $repairOrder->company_id !== $user->company_id) {
             abort(403);
+        }
+    }
+
+    private function finalizeIfFullyPaid(RepairOrder $repairOrder, RepairOrderPayment $payment): void
+    {
+        if (! $payment->repair_quote_id) {
+            return;
+        }
+
+        $quote = $repairOrder->quotes()
+            ->whereKey($payment->repair_quote_id)
+            ->where('quote_type', '!=', 'closure')
+            ->where('status', 'aprobado')
+            ->first();
+
+        if (! $quote || (float) $quote->payments()->sum('amount') < (float) $quote->total_amount) {
+            return;
+        }
+
+        if ($repairOrder->status !== 'finalizado') {
+            $repairOrder->update(['status' => 'finalizado']);
+            $repairOrder->statusLogs()->create([
+                'user_id' => request()->user()->id,
+                'status' => 'finalizado',
+                'comment' => 'Presupuesto aprobado pagado completamente: '.$quote->quote_number,
+            ]);
         }
     }
 }

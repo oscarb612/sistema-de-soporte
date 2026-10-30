@@ -38,6 +38,7 @@ class RepairOrder extends Model
         'en_ejecucion' => 'En ejecución',
         'terminado' => 'Terminado',
         'reparado' => 'Reparado',
+        'finalizado' => 'Finalizado',
         'entregado' => 'Entregado',
         'no_reparado' => 'No reparado',
         'cancelado' => 'Cancelado',
