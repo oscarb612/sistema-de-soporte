@@ -43,9 +43,14 @@ class DataRecoveryCaseController extends Controller
             return $case;
         });
         foreach ($request->file('photos', []) as $photo) $photos->store($case, $photo);
+        $successMessage = 'Caso de recuperación registrado correctamente.';
         try { $this->sendReceptionEmail($case, $request); } catch (Throwable $error) { report($error); }
+        $case->refresh();
+        if ($case->email_status === 'enviado') {
+            $successMessage .= ' Correo enviado exitosamente a '.$case->client->email.'.';
+        }
         ActivityLog::record($request, 'data_recovery_created', 'Caso Recuperadata creado: '.$case->code, $case, $case->company_id);
-        return redirect()->route('data-recovery.show', $case)->with('success', 'Caso de recuperación registrado correctamente.');
+        return redirect()->route('data-recovery.show', $case)->with('success', $successMessage);
     }
 
     public function show(DataRecoveryCase $dataRecovery)

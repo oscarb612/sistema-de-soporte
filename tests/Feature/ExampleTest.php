@@ -567,7 +567,8 @@ class ExampleTest extends TestCase
             'company_id' => $company->id, 'rut' => '12.345.678-5', 'client_name' => 'Cliente Recuperadata', 'client_email' => 'cliente@test.cl',
             'status' => 'recibido', 'unit_type' => 'HDD 2.5"', 'brand' => 'Seagate', 'capacity' => '1 TB', 'serial_number' => 'SN123',
             'contains_sensitive_data' => '1', 'access_credentials' => 'clave-secreta', 'photos' => [UploadedFile::fake()->image('unidad.jpg', 1800, 1200)],
-        ])->assertRedirect();
+        ])->assertRedirect()
+            ->assertSessionHas('success', 'Caso de recuperación registrado correctamente. Correo enviado exitosamente a cliente@test.cl.');
 
         $case = DataRecoveryCase::with(['client','photos'])->firstOrFail();
         $this->assertSame('RD-000001', $case->code);
