@@ -16,6 +16,7 @@ use App\Rules\ValidRut;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Throwable;
 
@@ -313,11 +314,17 @@ class RepairOrderController extends Controller
 
         $code = $repairOrder->code;
         $companyId = $repairOrder->company_id;
+        $preorder = $repairOrder->homeServicePreorder;
 
-        DB::transaction(function () use ($repairOrder) {
+        DB::transaction(function () use ($repairOrder, $preorder) {
+            $preorder?->delete();
             $repairOrder->devices()->detach();
             $repairOrder->delete();
         });
+
+        if ($preorder) {
+            Storage::disk('local')->deleteDirectory('home-service/'.$preorder->id);
+        }
 
         ActivityLog::record($request, 'repair_order_deleted', 'Orden eliminada: ' . $code, null, $companyId);
 

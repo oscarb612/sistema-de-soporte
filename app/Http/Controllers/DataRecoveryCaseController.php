@@ -14,6 +14,7 @@ use App\Mail\DataRecoveryReceived;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Throwable;
 
@@ -100,7 +101,7 @@ class DataRecoveryCaseController extends Controller
 
     public function destroy(Request $request, DataRecoveryCase $dataRecovery)
     {
-        $this->authorizeCase($dataRecovery); $code = $dataRecovery->code; $company = $dataRecovery->company_id; $dataRecovery->delete(); ActivityLog::record($request, 'data_recovery_deleted', 'Caso Recuperadata eliminado: '.$code, null, $company);
+        $this->authorizeCase($dataRecovery); $code = $dataRecovery->code; $company = $dataRecovery->company_id; $preorder = $dataRecovery->homeServicePreorder; DB::transaction(function () use ($dataRecovery, $preorder) { $preorder?->delete(); $dataRecovery->delete(); }); if ($preorder) Storage::disk('local')->deleteDirectory('home-service/'.$preorder->id); ActivityLog::record($request, 'data_recovery_deleted', 'Caso Recuperadata eliminado: '.$code, null, $company);
         return redirect()->route('data-recovery.index')->with('success', 'Caso eliminado correctamente.');
     }
 

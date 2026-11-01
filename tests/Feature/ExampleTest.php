@@ -12,6 +12,7 @@ use App\Models\DataRecoveryCase;
 use App\Models\Client;
 use App\Models\DataRecoveryPayment;
 use App\Models\DataRecoveryQuote;
+use App\Models\Device;
 use App\Models\HomeServicePreorder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -405,6 +406,22 @@ class ExampleTest extends TestCase
         $this->assertDatabaseMissing('repair_orders', ['id' => $order->id]);
     }
 
+    public function test_deleting_repair_order_also_deletes_linked_home_service_preorder(): void
+    {
+        Storage::fake('local');
+        $company = Company::create(['name' => 'Empresa OT con retiro', 'rut' => '76.100.000-1']);
+        $admin = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['company_id' => $company->id, 'rut' => '12.345.678-5', 'name' => 'Cliente vinculado']);
+        $device = Device::create(['company_id' => $company->id, 'client_id' => $client->id, 'type' => 'Notebook']);
+        $order = RepairOrder::create(['company_id' => $company->id, 'client_id' => $client->id, 'device_id' => $device->id, 'code' => 'OT-000005', 'status' => 'ingresado', 'service_mode' => 'diagnostico', 'reported_problem' => 'No enciende']);
+        $preorder = HomeServicePreorder::create(['company_id' => $company->id, 'client_id' => $client->id, 'repair_order_id' => $order->id, 'code' => 'PRE-000001', 'external_quote_code' => 'RET-000001', 'service_area' => 'servicio_tecnico', 'status' => 'finalizada', 'address' => 'Dirección de prueba']);
+
+        $this->actingAs($admin)->delete("/repair-orders/{$order->id}")->assertRedirect('/repair-orders');
+
+        $this->assertDatabaseMissing('repair_orders', ['id' => $order->id]);
+        $this->assertDatabaseMissing('home_service_preorders', ['id' => $preorder->id]);
+    }
+
     public function test_direct_service_order_uses_catalog_price_and_skips_quote(): void
     {
         $company = Company::create(['name' => 'Empresa Servicio Directo', 'rut' => '88.888.888-8']);
@@ -745,6 +762,22 @@ class ExampleTest extends TestCase
             ->assertSessionHas('success');
 
         $this->assertDatabaseMissing('home_service_preorders', ['id' => $preorder->id]);
+    }
+
+    public function test_deleting_home_service_preorder_also_deletes_linked_repair_order(): void
+    {
+        Storage::fake('local');
+        $company = Company::create(['name' => 'Empresa retiro con OT', 'rut' => '76.100.000-2']);
+        $admin = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['company_id' => $company->id, 'rut' => '12.345.678-5', 'name' => 'Cliente vinculado']);
+        $device = Device::create(['company_id' => $company->id, 'client_id' => $client->id, 'type' => 'Notebook']);
+        $order = RepairOrder::create(['company_id' => $company->id, 'client_id' => $client->id, 'device_id' => $device->id, 'code' => 'OT-000005', 'status' => 'ingresado', 'service_mode' => 'diagnostico', 'reported_problem' => 'No enciende']);
+        $preorder = HomeServicePreorder::create(['company_id' => $company->id, 'client_id' => $client->id, 'repair_order_id' => $order->id, 'code' => 'PRE-000001', 'external_quote_code' => 'RET-000001', 'service_area' => 'servicio_tecnico', 'status' => 'finalizada', 'address' => 'Dirección de prueba']);
+
+        $this->actingAs($admin)->delete("/home-service/{$preorder->id}")->assertRedirect(route('home-service.index', ['area' => 'servicio_tecnico']));
+
+        $this->assertDatabaseMissing('home_service_preorders', ['id' => $preorder->id]);
+        $this->assertDatabaseMissing('repair_orders', ['id' => $order->id]);
     }
 
     public function test_diagnosis_is_registered_before_quoting_in_both_service_areas(): void
