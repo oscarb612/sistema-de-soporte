@@ -385,23 +385,39 @@ class ExampleTest extends TestCase
             'reported_problem' => 'No inicia', 'technical_diagnosis' => 'Requiere reparación', 'total_amount' => 0,
         ]);
         $order->devices()->attach($device);
+        $oldClosure = RepairQuote::create([
+            'company_id' => $company->id, 'repair_order_id' => $order->id, 'quote_number' => 'PRES-ANTERIOR',
+            'status' => 'emitido', 'quote_type' => 'closure', 'diagnosis_summary' => 'Liquidación anterior',
+            'net_amount' => 16807, 'tax_amount' => 3193, 'total_amount' => 20000,
+        ]);
         $quote = RepairQuote::create([
             'company_id' => $company->id, 'repair_order_id' => $order->id, 'quote_number' => 'PRES-SALDO',
-            'status' => 'emitido', 'diagnosis_summary' => 'Requiere reparación', 'net_amount' => 100000,
-            'tax_amount' => 19000, 'total_amount' => 119000,
+            'status' => 'emitido', 'diagnosis_summary' => 'Requiere reparación', 'net_amount' => 210084,
+            'tax_amount' => 39916, 'total_amount' => 250000,
         ]);
 
         $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
-            'repair_quote_id' => $quote->id, 'payment_type' => 'abono', 'payment_method' => 'transferencia',
-            'amount' => 30000, 'payment_date' => '2026-11-03',
+            'repair_quote_id' => $oldClosure->id, 'payment_type' => 'abono', 'payment_method' => 'efectivo',
+            'amount' => 20000, 'payment_date' => '2026-11-02',
         ])->assertRedirect("/repair-orders/{$order->id}");
 
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
+            'repair_quote_id' => $quote->id, 'payment_type' => 'abono', 'payment_method' => 'transferencia',
+            'amount' => 125000, 'payment_date' => '2026-11-03',
+        ])->assertRedirect("/repair-orders/{$order->id}");
+
+        $order->load(['quotes', 'payments']);
+        $this->assertSame($quote->id, $order->activePayableQuote()->id);
+        $this->assertSame(250000.0, $order->payableTotal());
+        $this->assertSame(125000.0, $order->paidTotal());
+        $this->assertSame(125000.0, $order->pendingBalance());
+
         $this->actingAs($user)->get("/repair-orders/{$order->id}")
-            ->assertOk()->assertSee('$119.000')->assertSee('$30.000')->assertSee('$89.000');
+            ->assertOk()->assertSee('$250.000')->assertSee('$125.000');
         $this->actingAs($user)->get("/repair-quotes/{$quote->id}")
-            ->assertOk()->assertSee('Saldo pendiente')->assertSee('$89.000');
+            ->assertOk()->assertSee('Saldo pendiente')->assertSee('$125.000');
         $this->actingAs($user)->get("/repair-orders/{$order->id}/print")
-            ->assertOk()->assertSee('Saldo pendiente')->assertSee('$89.000');
+            ->assertOk()->assertSee('Saldo pendiente')->assertSee('$125.000');
     }
 
     public function test_repair_order_can_be_deleted(): void

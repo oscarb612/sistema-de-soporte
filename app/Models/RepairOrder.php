@@ -143,30 +143,30 @@ class RepairOrder extends Model
         return $this->service_mode === 'precio_definido' ? 'Servicio directo' : 'Con diagnóstico';
     }
 
-    public function payableTotal(): float
+    public function activePayableQuote(): ?RepairQuote
     {
         $quotes = $this->relationLoaded('quotes') ? $this->quotes : $this->quotes()->get();
-        $approvedTotal = (float) $quotes->where('quote_type', '!=', 'closure')->where('status', 'aprobado')->sum('total_amount');
 
-        if ($approvedTotal > 0) {
-            return $approvedTotal;
-        }
+        return $quotes->where('quote_type', '!=', 'closure')->where('status', 'aprobado')->sortByDesc('id')->first()
+            ?? $quotes->where('quote_type', '!=', 'closure')->where('status', 'emitido')->sortByDesc('id')->first()
+            ?? $quotes->where('quote_type', 'closure')->whereIn('status', ['emitido', 'aprobado'])->sortByDesc('id')->first();
+    }
 
-        $closureTotal = (float) $quotes->where('quote_type', 'closure')->where('status', 'emitido')->sum('total_amount');
-        if ($closureTotal > 0) {
-            return $closureTotal;
-        }
+    public function payableTotal(): float
+    {
+        $activeQuote = $this->activePayableQuote();
 
-        $latestIssuedQuote = $quotes->where('quote_type', '!=', 'closure')->where('status', 'emitido')->sortByDesc('id')->first();
-
-        return $latestIssuedQuote ? (float) $latestIssuedQuote->total_amount : (float) $this->total_amount;
+        return $activeQuote ? (float) $activeQuote->total_amount : (float) $this->total_amount;
     }
 
     public function paidTotal(): float
     {
-        return (float) ($this->relationLoaded('payments')
-            ? $this->payments->sum('amount')
-            : $this->payments()->sum('amount'));
+        $activeQuote = $this->activePayableQuote();
+        $payments = $this->relationLoaded('payments') ? $this->payments : $this->payments()->get();
+
+        return (float) ($activeQuote
+            ? $payments->where('repair_quote_id', $activeQuote->id)->sum('amount')
+            : $payments->sum('amount'));
     }
 
     public function pendingBalance(): float

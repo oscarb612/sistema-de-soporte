@@ -32,6 +32,10 @@ class RepairOrderPaymentController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
+        if (! isset($data['repair_quote_id']) && $activeQuote = $repairOrder->activePayableQuote()) {
+            $data['repair_quote_id'] = $activeQuote->id;
+        }
+
         $payment = DB::transaction(function () use ($data, $repairOrder, $request) {
             $payment = RepairOrderPayment::create([
                 ...$data,
