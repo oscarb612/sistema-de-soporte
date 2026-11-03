@@ -142,4 +142,35 @@ class RepairOrder extends Model
     {
         return $this->service_mode === 'precio_definido' ? 'Servicio directo' : 'Con diagnóstico';
     }
+
+    public function payableTotal(): float
+    {
+        $quotes = $this->relationLoaded('quotes') ? $this->quotes : $this->quotes()->get();
+        $approvedTotal = (float) $quotes->where('quote_type', '!=', 'closure')->where('status', 'aprobado')->sum('total_amount');
+
+        if ($approvedTotal > 0) {
+            return $approvedTotal;
+        }
+
+        $closureTotal = (float) $quotes->where('quote_type', 'closure')->where('status', 'emitido')->sum('total_amount');
+        if ($closureTotal > 0) {
+            return $closureTotal;
+        }
+
+        $latestIssuedQuote = $quotes->where('quote_type', '!=', 'closure')->where('status', 'emitido')->sortByDesc('id')->first();
+
+        return $latestIssuedQuote ? (float) $latestIssuedQuote->total_amount : (float) $this->total_amount;
+    }
+
+    public function paidTotal(): float
+    {
+        return (float) ($this->relationLoaded('payments')
+            ? $this->payments->sum('amount')
+            : $this->payments()->sum('amount'));
+    }
+
+    public function pendingBalance(): float
+    {
+        return max($this->payableTotal() - $this->paidTotal(), 0);
+    }
 }

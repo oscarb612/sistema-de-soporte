@@ -236,6 +236,7 @@ class RepairOrderController extends Controller
                 'devices',
                 'items.service',
                 'payments',
+                'quotes',
                 'homeServicePreorder',
             ]),
         ]);

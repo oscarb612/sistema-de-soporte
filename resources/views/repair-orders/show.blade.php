@@ -166,12 +166,9 @@
 
 @php
     $orderDevices = $order->devices->isNotEmpty() ? $order->devices : collect([$order->device]);
-    $approvedQuoteTotal = $order->quotes->where('status', 'aprobado')->sum('total_amount');
-    $closureTotal = $order->quotes->where('quote_type', 'closure')->where('status', 'emitido')->sum('total_amount');
-    $quoteTotal = $approvedQuoteTotal > 0 ? $approvedQuoteTotal : ($closureTotal > 0 ? $closureTotal : (float) optional($order->quotes->where('status','emitido')->sortByDesc('id')->first())->total_amount);
-    $budgetTotal = $quoteTotal > 0 ? $quoteTotal : $order->total_amount;
-    $paidTotal = $order->payments->sum('amount');
-    $balanceTotal = max(0, $budgetTotal - $paidTotal);
+    $budgetTotal = $order->payableTotal();
+    $paidTotal = $order->paidTotal();
+    $balanceTotal = $order->pendingBalance();
 @endphp
 
 <div class="panel" style="margin-top:16px;">

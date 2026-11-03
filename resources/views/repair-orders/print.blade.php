@@ -53,8 +53,9 @@
 
 @php
     $orderDevices = $order->devices->isNotEmpty() ? $order->devices : collect([$order->device])->filter();
-    $paidTotal = (float) $order->payments->sum('amount');
-    $balanceTotal = max((float) $order->total_amount - $paidTotal, 0);
+    $payableTotal = $order->payableTotal();
+    $paidTotal = $order->paidTotal();
+    $balanceTotal = $order->pendingBalance();
 @endphp
 
 @foreach (['Copia oficina', 'Copia cliente'] as $copyLabel)
@@ -132,6 +133,16 @@
             <p class="notice">El cliente declara conocer y aceptar el servicio solicitado, su alcance y el valor total indicado en esta orden.</p>
         </section>
     @else
+        @if($order->quotes->isNotEmpty())
+        <section class="section">
+            <h2>Presupuesto y pagos</h2>
+            <table class="totals">
+                <tr class="total-row"><td>Total presupuesto</td><td class="money">${{ number_format($payableTotal, 0, ',', '.') }}</td></tr>
+                <tr><td>Abonado</td><td class="money">${{ number_format($paidTotal, 0, ',', '.') }}</td></tr>
+                <tr><td>Saldo pendiente</td><td class="money">${{ number_format($balanceTotal, 0, ',', '.') }}</td></tr>
+            </table>
+        </section>
+        @endif
         @if($order->items->isNotEmpty())
         <section class="section">
             <h2>Servicio de retiro y entrega</h2>

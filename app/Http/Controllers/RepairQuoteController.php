@@ -72,7 +72,7 @@ class RepairQuoteController extends Controller
         $this->authorizeCompanyAccess($repairQuote->repairOrder);
 
         return view('repair-quotes.show', [
-            'quote' => $repairQuote->load(['repairOrder.client', 'repairOrder.company', 'repairOrder.devices', 'items']),
+            'quote' => $repairQuote->load(['repairOrder.client', 'repairOrder.company', 'repairOrder.devices', 'repairOrder.quotes', 'repairOrder.payments', 'items']),
         ]);
     }
 

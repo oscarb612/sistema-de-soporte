@@ -62,6 +62,10 @@
     <p><strong>Neto:</strong> ${{ number_format($quote->net_amount, 0, ',', '.') }}</p>
     <p><strong>IVA (19%):</strong> ${{ number_format($quote->tax_amount, 0, ',', '.') }}</p>
     <h2>Total: ${{ number_format($quote->total_amount, 0, ',', '.') }}</h2>
+    <div class="amounts">
+        <span>Total abonado <b>${{ number_format($quote->repairOrder->paidTotal(), 0, ',', '.') }}</b></span>
+        <span>Saldo pendiente <b>${{ number_format($quote->repairOrder->pendingBalance(), 0, ',', '.') }}</b></span>
+    </div>
     @if($quote->quote_type !== 'closure')<p class="muted">Diagnóstico de ${{number_format($quote->company->diagnostic_fee_gross ?? 20000,0,',','.')}} bonificado al aprobar. Si se rechaza, se generará el cobro de diagnóstico más el retiro realizado.</p>@endif
 </div>
 

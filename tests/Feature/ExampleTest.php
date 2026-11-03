@@ -373,6 +373,37 @@ class ExampleTest extends TestCase
         ]);
     }
 
+    public function test_diagnostic_order_payment_reduces_the_pending_quote_balance_everywhere(): void
+    {
+        $company = Company::create(['name' => 'Empresa Saldo', 'rut' => '76.123.456-0']);
+        $user = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['company_id' => $company->id, 'name' => 'Cliente Saldo', 'rut' => '12.345.678-5']);
+        $device = Device::create(['company_id' => $company->id, 'client_id' => $client->id, 'type' => 'Notebook']);
+        $order = RepairOrder::create([
+            'company_id' => $company->id, 'client_id' => $client->id, 'device_id' => $device->id,
+            'code' => 'OT-SALDO', 'status' => 'presupuesto_emitido', 'service_mode' => 'diagnostico',
+            'reported_problem' => 'No inicia', 'technical_diagnosis' => 'Requiere reparación', 'total_amount' => 0,
+        ]);
+        $order->devices()->attach($device);
+        $quote = RepairQuote::create([
+            'company_id' => $company->id, 'repair_order_id' => $order->id, 'quote_number' => 'PRES-SALDO',
+            'status' => 'emitido', 'diagnosis_summary' => 'Requiere reparación', 'net_amount' => 100000,
+            'tax_amount' => 19000, 'total_amount' => 119000,
+        ]);
+
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
+            'repair_quote_id' => $quote->id, 'payment_type' => 'abono', 'payment_method' => 'transferencia',
+            'amount' => 30000, 'payment_date' => '2026-11-03',
+        ])->assertRedirect("/repair-orders/{$order->id}");
+
+        $this->actingAs($user)->get("/repair-orders/{$order->id}")
+            ->assertOk()->assertSee('$119.000')->assertSee('$30.000')->assertSee('$89.000');
+        $this->actingAs($user)->get("/repair-quotes/{$quote->id}")
+            ->assertOk()->assertSee('Saldo pendiente')->assertSee('$89.000');
+        $this->actingAs($user)->get("/repair-orders/{$order->id}/print")
+            ->assertOk()->assertSee('Saldo pendiente')->assertSee('$89.000');
+    }
+
     public function test_repair_order_can_be_deleted(): void
     {
         $company = Company::create([
