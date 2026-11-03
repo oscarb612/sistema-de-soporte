@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\BusinessDeadlineService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -42,6 +43,13 @@ class RepairOrder extends Model
         'entregado' => 'Entregado',
         'no_reparado' => 'No reparado',
         'cancelado' => 'Cancelado',
+    ];
+
+    public const TERMINAL_STATUSES = [
+        'finalizado',
+        'entregado',
+        'cancelado',
+        'rechazado_por_cliente',
     ];
 
     protected $fillable = [
@@ -131,6 +139,11 @@ class RepairOrder extends Model
     public function homeServicePreorder(): HasOne
     {
         return $this->hasOne(HomeServicePreorder::class);
+    }
+
+    public function scopePending(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', self::TERMINAL_STATUSES);
     }
 
     public function getStatusLabelAttribute(): string

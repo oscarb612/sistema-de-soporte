@@ -66,6 +66,31 @@ class ExampleTest extends TestCase
         $response->assertSee('RUT');
     }
 
+    public function test_rejected_repair_order_keeps_its_label_but_is_not_pending(): void
+    {
+        $company = Company::create(['name' => 'Empresa Rechazos', 'rut' => '11.222.333-4']);
+        $user = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['company_id' => $company->id, 'name' => 'Cliente Rechazo', 'rut' => '12.345.678-5']);
+        $device = Device::create(['company_id' => $company->id, 'client_id' => $client->id, 'type' => 'Notebook']);
+
+        RepairOrder::create([
+            'company_id' => $company->id, 'client_id' => $client->id, 'device_id' => $device->id,
+            'code' => 'OT-RECHAZADA', 'status' => 'rechazado_por_cliente', 'service_mode' => 'diagnostico',
+            'reported_problem' => 'No enciende',
+        ]);
+        RepairOrder::create([
+            'company_id' => $company->id, 'client_id' => $client->id, 'device_id' => $device->id,
+            'code' => 'OT-PENDIENTE', 'status' => 'en_revision', 'service_mode' => 'diagnostico',
+            'reported_problem' => 'Se apaga',
+        ]);
+
+        $this->assertSame(1, RepairOrder::query()->pending()->count());
+        $this->actingAs($user)->get('/')
+            ->assertOk()
+            ->assertViewHas('pendingOrdersCount', 1)
+            ->assertSee('Rechazado por cliente');
+    }
+
     public function test_authenticated_user_can_open_repair_order_edit_form(): void
     {
         $company = Company::create(['name' => 'Empresa Editar Orden', 'rut' => '21.111.111-9']);
