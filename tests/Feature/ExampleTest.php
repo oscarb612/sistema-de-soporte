@@ -436,6 +436,7 @@ class ExampleTest extends TestCase
         $this->assertSame(250000.0, $order->payableTotal());
         $this->assertSame(125000.0, $order->paidTotal());
         $this->assertSame(125000.0, $order->pendingBalance());
+        $this->assertSame('1er abono', $order->status_label);
 
         $this->actingAs($user)->get("/repair-orders/{$order->id}")
             ->assertOk()->assertSee('$250.000')->assertSee('$125.000');
@@ -443,6 +444,19 @@ class ExampleTest extends TestCase
             ->assertOk()->assertSee('Saldo pendiente')->assertSee('$125.000');
         $this->actingAs($user)->get("/repair-orders/{$order->id}/print")
             ->assertOk()->assertSee('Saldo pendiente')->assertSee('$125.000');
+
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
+            'repair_quote_id' => $quote->id, 'payment_type' => 'abono', 'payment_method' => 'efectivo',
+            'amount' => 10000, 'payment_date' => '2026-11-03',
+        ])->assertRedirect("/repair-orders/{$order->id}");
+        $this->assertSame('2do abono', $order->fresh()->status_label);
+
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
+            'repair_quote_id' => $quote->id, 'payment_type' => 'pago_final', 'payment_method' => 'transferencia',
+            'amount' => 10000, 'payment_date' => '2026-11-03',
+        ])->assertRedirect("/repair-orders/{$order->id}");
+        $this->assertSame('finalizado', $order->fresh()->status);
+        $this->assertSame('Finalizado', $order->fresh()->status_label);
     }
 
     public function test_repair_order_can_be_deleted(): void

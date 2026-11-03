@@ -21,7 +21,7 @@ class DashboardController extends Controller
             'clientsCount' => $companyScope(Client::query())->count(),
             'ordersCount' => $companyScope(RepairOrder::query())->count(),
             'pendingOrdersCount' => $companyScope(RepairOrder::query()->pending())->count(),
-            'recentOrders' => $companyScope(RepairOrder::with(['company', 'client', 'device']))->latest()->take(8)->get(),
+            'recentOrders' => $companyScope(RepairOrder::with(['company', 'client', 'device', 'quotes', 'payments']))->latest()->take(8)->get(),
         ]);
     }
 }

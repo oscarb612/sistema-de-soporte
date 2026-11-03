@@ -148,7 +148,37 @@ class RepairOrder extends Model
 
     public function getStatusLabelAttribute(): string
     {
+        if (! in_array($this->status, self::TERMINAL_STATUSES, true)) {
+            $activeQuote = $this->activePayableQuote();
+            $payments = $this->relationLoaded('payments') ? $this->payments : $this->payments()->get();
+            $installmentCount = $payments
+                ->where('payment_type', 'abono')
+                ->when($activeQuote, fn ($items) => $items->where('repair_quote_id', $activeQuote->id))
+                ->count();
+
+            if ($installmentCount > 0) {
+                return $this->installmentOrdinal($installmentCount).' abono';
+            }
+        }
+
         return self::STATUSES[$this->status] ?? $this->status;
+    }
+
+    private function installmentOrdinal(int $number): string
+    {
+        return match ($number) {
+            1 => '1er',
+            2 => '2do',
+            3 => '3er',
+            4 => '4to',
+            5 => '5to',
+            6 => '6to',
+            7 => '7mo',
+            8 => '8vo',
+            9 => '9no',
+            10 => '10mo',
+            default => $number.'°',
+        };
     }
 
     public function getServiceModeLabelAttribute(): string

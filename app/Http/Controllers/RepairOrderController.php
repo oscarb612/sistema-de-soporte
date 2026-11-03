@@ -25,7 +25,7 @@ class RepairOrderController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $orders = RepairOrder::with(['company', 'client', 'device'])
+        $orders = RepairOrder::with(['company', 'client', 'device', 'quotes', 'payments'])
             ->when($user->role !== 'super_admin', fn ($query) => $query->where('company_id', $user->company_id))
             ->when($request->filled('q'), function ($query) use ($request) {
                 $search = mb_strtolower(trim($request->string('q')->toString()));

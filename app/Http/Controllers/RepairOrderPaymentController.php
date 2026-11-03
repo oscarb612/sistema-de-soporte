@@ -91,6 +91,12 @@ class RepairOrderPaymentController extends Controller
 
     private function finalizeIfFullyPaid(RepairOrder $repairOrder, RepairOrderPayment $payment): void
     {
+        if ($payment->payment_type === 'pago_final') {
+            $this->finalizeOrder($repairOrder, 'Pago final registrado.');
+
+            return;
+        }
+
         if (! $payment->repair_quote_id) {
             return;
         }
@@ -105,13 +111,20 @@ class RepairOrderPaymentController extends Controller
             return;
         }
 
-        if ($repairOrder->status !== 'finalizado') {
-            $repairOrder->update(['status' => 'finalizado']);
-            $repairOrder->statusLogs()->create([
-                'user_id' => request()->user()->id,
-                'status' => 'finalizado',
-                'comment' => 'Presupuesto aprobado pagado completamente: '.$quote->quote_number,
-            ]);
+        $this->finalizeOrder($repairOrder, 'Presupuesto aprobado pagado completamente: '.$quote->quote_number);
+    }
+
+    private function finalizeOrder(RepairOrder $repairOrder, string $comment): void
+    {
+        if ($repairOrder->status === 'finalizado') {
+            return;
         }
+
+        $repairOrder->update(['status' => 'finalizado']);
+        $repairOrder->statusLogs()->create([
+            'user_id' => request()->user()->id,
+            'status' => 'finalizado',
+            'comment' => $comment,
+        ]);
     }
 }
