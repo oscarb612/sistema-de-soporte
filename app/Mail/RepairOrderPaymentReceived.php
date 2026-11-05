@@ -34,7 +34,9 @@ class RepairOrderPaymentReceived extends Mailable
 
     public function attachments(): array
     {
-        $pdf = Pdf::loadView('repair-orders.payment-pdf', ['order' => $this->payment->repairOrder, 'payment' => $this->payment])->output();
+        $pdf = Pdf::loadView('repair-orders.payment-pdf', ['order' => $this->payment->repairOrder, 'payment' => $this->payment])
+            ->setPaper('a4', 'portrait')
+            ->output();
 
         return [Attachment::fromData(fn () => $pdf, 'comprobante-abono-'.$this->payment->repairOrder->code.'-'.$this->payment->id.'.pdf')->withMime('application/pdf')];
     }
