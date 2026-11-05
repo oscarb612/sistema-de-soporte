@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\RepairOrder;
 use App\Models\RepairOrderPayment;
+use App\Mail\RepairOrderPaymentReceived;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class RepairOrderPaymentController extends Controller
 {
@@ -56,7 +59,28 @@ class RepairOrderPaymentController extends Controller
             $repairOrder
         );
 
-        return redirect()->route('repair-orders.show', $repairOrder)->with('success', 'Abono registrado correctamente.');
+        $message = 'Abono registrado correctamente.';
+        try {
+            if ($this->sendPaymentEmail($payment, $request)) {
+                $message .= ' Comprobante de abono enviado a '.$repairOrder->client->email.'.';
+            }
+        } catch (Throwable $error) {
+            report($error);
+            $message .= ' El abono fue guardado, pero no fue posible enviar el correo.';
+        }
+
+        return redirect()->route('repair-orders.show', $repairOrder)->with('success', $message);
+    }
+
+    public function print(RepairOrder $repairOrder, RepairOrderPayment $payment)
+    {
+        $this->authorizeCompanyAccess($repairOrder);
+        abort_unless($payment->repair_order_id === $repairOrder->id, 404);
+
+        return view('repair-orders.payment-print', [
+            'order' => $repairOrder->load(['company', 'client', 'devices']),
+            'payment' => $payment->load(['repairQuote', 'device', 'creator']),
+        ]);
     }
 
     public function destroy(Request $request, RepairOrder $repairOrder, RepairOrderPayment $payment)
@@ -126,5 +150,36 @@ class RepairOrderPaymentController extends Controller
             'status' => 'finalizado',
             'comment' => $comment,
         ]);
+    }
+
+    private function sendPaymentEmail(RepairOrderPayment $payment, Request $request): bool
+    {
+        $payment->load(['company', 'repairOrder.client', 'repairOrder.devices', 'repairQuote', 'device', 'creator']);
+        $order = $payment->repairOrder;
+        $company = $payment->company;
+
+        if (! $order->client->email) {
+            return false;
+        }
+        if (! $company->smtp_host || ! $company->smtp_username || ! $company->smtp_password) {
+            throw new \RuntimeException('La empresa no tiene completa su configuración SMTP.');
+        }
+
+        config(['mail.mailers.company_smtp' => [
+            'transport' => 'smtp',
+            'scheme' => $company->smtp_security === 'ssl' ? 'smtps' : null,
+            'host' => $company->smtp_host,
+            'port' => $company->smtp_port ?: 587,
+            'username' => $company->smtp_username,
+            'password' => $company->smtp_password,
+            'timeout' => 30,
+            'auto_tls' => $company->smtp_security !== 'none',
+            'local_domain' => parse_url((string) config('app.url'), PHP_URL_HOST),
+        ]]);
+
+        Mail::mailer('company_smtp')->to($order->client->email)->send(new RepairOrderPaymentReceived($payment));
+        ActivityLog::record($request, 'repair_order_payment_emailed', 'Comprobante de abono enviado: '.$order->code, $payment, $company->id);
+
+        return true;
     }
 }

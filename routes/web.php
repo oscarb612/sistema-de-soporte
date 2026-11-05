@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::post('repair-orders/{repair_order}/quotes', [RepairQuoteController::class, 'store'])->name('repair-orders.quotes.store');
     Route::post('repair-orders/{repair_order}/diagnosis', [RepairOrderController::class, 'storeDiagnosis'])->name('repair-orders.diagnosis.store');
     Route::post('repair-orders/{repair_order}/payments', [RepairOrderPaymentController::class, 'store'])->name('repair-orders.payments.store');
+    Route::get('repair-orders/{repair_order}/payments/{payment}/print', [RepairOrderPaymentController::class, 'print'])->name('repair-orders.payments.print');
     Route::delete('repair-orders/{repair_order}/payments/{payment}', [RepairOrderPaymentController::class, 'destroy'])->name('repair-orders.payments.destroy');
     Route::get('repair-orders/search-suggestions', [RepairOrderController::class, 'searchSuggestions'])->name('repair-orders.search-suggestions');
     Route::get('repair-orders/{repair_order}/print', [RepairOrderController::class, 'print'])->name('repair-orders.print');

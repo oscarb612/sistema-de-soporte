@@ -75,4 +75,24 @@ class RepairOrderPayment extends Model
     {
         return self::METHODS[$this->payment_method] ?? $this->payment_method;
     }
+
+    public function receiptTotal(): float
+    {
+        return (float) ($this->repairQuote?->total_amount ?? $this->repairOrder->total_amount);
+    }
+
+    public function paidThroughThisPayment(): float
+    {
+        return (float) $this->repairOrder->payments()
+            ->when($this->repair_quote_id,
+                fn ($query) => $query->where('repair_quote_id', $this->repair_quote_id),
+                fn ($query) => $query->whereNull('repair_quote_id'))
+            ->where('id', '<=', $this->id)
+            ->sum('amount');
+    }
+
+    public function balanceAfterPayment(): float
+    {
+        return max($this->receiptTotal() - $this->paidThroughThisPayment(), 0);
+    }
 }

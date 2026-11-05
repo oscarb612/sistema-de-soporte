@@ -53,9 +53,6 @@
 
 @php
     $orderDevices = $order->devices->isNotEmpty() ? $order->devices : collect([$order->device])->filter();
-    $payableTotal = $order->payableTotal();
-    $paidTotal = $order->paidTotal();
-    $balanceTotal = $order->pendingBalance();
 @endphp
 
 @foreach (['Copia oficina', 'Copia cliente'] as $copyLabel)
@@ -127,22 +124,10 @@
                 <tr><td>Neto</td><td class="money">${{ number_format((float) $order->net_amount, 0, ',', '.') }}</td></tr>
                 <tr><td>IVA (19%)</td><td class="money">${{ number_format((float) $order->tax_amount, 0, ',', '.') }}</td></tr>
                 <tr class="total-row"><td>Total</td><td class="money">${{ number_format((float) $order->total_amount, 0, ',', '.') }}</td></tr>
-                <tr><td>Abonado</td><td class="money">${{ number_format($paidTotal, 0, ',', '.') }}</td></tr>
-                <tr><td>Saldo</td><td class="money">${{ number_format($balanceTotal, 0, ',', '.') }}</td></tr>
             </table>
             <p class="notice">El cliente declara conocer y aceptar el servicio solicitado, su alcance y el valor total indicado en esta orden.</p>
         </section>
     @else
-        @if($order->quotes->isNotEmpty())
-        <section class="section">
-            <h2>Presupuesto y pagos</h2>
-            <table class="totals">
-                <tr class="total-row"><td>Total presupuesto</td><td class="money">${{ number_format($payableTotal, 0, ',', '.') }}</td></tr>
-                <tr><td>Abonado</td><td class="money">${{ number_format($paidTotal, 0, ',', '.') }}</td></tr>
-                <tr><td>Saldo pendiente</td><td class="money">${{ number_format($balanceTotal, 0, ',', '.') }}</td></tr>
-            </table>
-        </section>
-        @endif
         @if($order->items->isNotEmpty())
         <section class="section">
             <h2>Servicio de retiro y entrega</h2>
