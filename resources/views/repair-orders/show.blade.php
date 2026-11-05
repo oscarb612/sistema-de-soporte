@@ -1,320 +1,36 @@
 @extends('layouts.app')
-
 @section('content')
-<div class="page-head">
-    <div>
-        <h1>Orden {{ $order->code }}</h1>
-        <p class="muted">{{ $order->company->name }} · {{ $order->created_at->format('d-m-Y H:i') }}</p>
-    </div>
-    <div class="actions" style="margin:0;">
-        @if ($order->service_mode === 'diagnostico' && $order->technical_diagnosis && $order->quotes->where('quote_type','!=','closure')->where('status','!=','rechazado')->isEmpty())
-            <a class="btn primary" href="{{ route('repair-orders.quotes.create', $order) }}">Crear presupuesto</a>
-        @elseif ($order->service_mode === 'diagnostico' && $order->quotes->where('quote_type','!=','closure')->where('status','!=','rechazado')->isNotEmpty())
-            <span class="btn disabled" aria-disabled="true">Presupuesto creado</span>
-        @endif
-        <a class="btn" href="{{ route('repair-orders.edit', $order) }}">Editar</a>
-        <a class="btn warning" href="{{ route('repair-orders.print', $order) }}" target="_blank">Imprimir comprobante</a>
-        @if ($order->client->email)
-            <form method="post" action="{{ route('repair-orders.send-email', $order) }}">
-                @csrf
-                <button class="btn" type="submit">{{ $order->email_status === 'enviado' ? 'Reenviar correo' : 'Enviar correo' }}</button>
-            </form>
-        @endif
-        <form method="post" action="{{ route('repair-orders.destroy', $order) }}" onsubmit="return confirm('¿Seguro que deseas eliminar esta orden? Esta acción no se puede deshacer.');">
-            @csrf
-            @method('delete')
-            <button class="btn danger" type="submit">Eliminar</button>
-        </form>
-    </div>
-</div>
-
-@if ($order->service_mode === 'diagnostico' && $order->quotes->where('quote_type','!=','closure')->isEmpty())
-<div class="panel" style="margin-top:16px;">
-    <h2>{{ $order->technical_diagnosis ? 'Diagnóstico registrado' : 'Registrar diagnóstico' }}</h2>
-    <p class="muted">Documenta el resultado de la revisión técnica. Al guardarlo, la orden quedará lista para generar el presupuesto.</p>
-    <form method="post" action="{{ route('repair-orders.diagnosis.store', $order) }}" enctype="multipart/form-data">
-        @csrf
-        <label>Diagnóstico técnico
-            <textarea name="technical_diagnosis" required>{{ old('technical_diagnosis', $order->technical_diagnosis) }}</textarea>
-        </label>
-        @error('technical_diagnosis')<p class="field-error">{{ $message }}</p>@enderror
-        <label style="margin-top:12px;">Imágenes del diagnóstico (máximo 3)
-            <input type="file" name="diagnosis_photos[]" accept="image/jpeg,image/png,image/webp" multiple>
-        </label>
-        <p class="muted">Puedes adjuntar hasta 3 imágenes JPG, PNG o WebP de hasta 10 MB cada una.</p>
-        @error('diagnosis_photos')<p class="field-error">{{ $message }}</p>@enderror
-        @error('diagnosis_photos.*')<p class="field-error">{{ $message }}</p>@enderror
-        <div class="actions"><button class="btn primary" type="submit">{{ $order->technical_diagnosis ? 'Actualizar diagnóstico' : 'Guardar diagnóstico' }}</button></div>
-    </form>
-</div>
-@elseif ($order->technical_diagnosis)
-<div class="panel" style="margin-top:16px;">
-    <h2>Diagnóstico técnico</h2>
-    <p>{!! nl2br(e($order->technical_diagnosis)) !!}</p>
-</div>
-@endif
-
-<div class="panel" style="margin-top:16px;">
-    <h2>Correo y fotografías de recepción</h2>
-    <p><strong>Estado del correo:</strong> <span class="badge">{{ ucfirst($order->email_status ?: 'pendiente') }}</span></p>
-    @if ($order->emailed_at)<p>Enviado: {{ $order->emailed_at->format('d-m-Y H:i') }} a {{ $order->client->email }}</p>@endif
-    @if ($order->email_error)<p class="field-error">{{ $order->email_error }}</p>@endif
-    @if ($order->photos->isNotEmpty())
-        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;">
-            @foreach ($order->photos as $photo)
-                <a href="{{ route('repair-order-photos.show', $photo) }}" target="_blank">
-                    <img src="{{ route('repair-order-photos.show', $photo) }}" alt="Fotografía {{ $loop->iteration }}" style="width:100%; height:140px; object-fit:cover; border-radius:6px; border:1px solid var(--line);">
-                    <span class="muted">{{ ucfirst($photo->category) }} · {{ number_format($photo->size / 1024, 0, ',', '.') }} KB</span>
-                </a>
-            @endforeach
-        </div>
-    @else
-        <p class="muted">Esta orden no tiene fotografías adjuntas.</p>
-    @endif
-</div>
-
-<div class="details">
-    <div class="panel">
-        <h2>Cliente</h2>
-        <p><strong>{{ $order->client->name }}</strong></p>
-        <p>RUT: {{ $order->client->formatted_rut }}</p>
-        <p>Teléfono: {{ $order->client->phone }}</p>
-        <p>Correo: {{ $order->client->email }}</p>
-        <p>Dirección: {{ $order->client->address }}</p>
-        <p>Región: {{ $order->client->region ?: 'No informada' }}</p>
-        <p>Comuna: {{ $order->client->commune ?: 'No informada' }}</p>
-    </div>
-
-    <div class="panel">
-        <h2>Equipos</h2>
-        @foreach ($order->devices->isNotEmpty() ? $order->devices : collect([$order->device]) as $device)
-            <div style="border-bottom:1px solid var(--line); margin-bottom:12px; padding-bottom:12px;">
-                <p><strong>Equipo {{ $loop->iteration }}</strong></p>
-                <p>Tipo: {{ $device->type }}</p>
-                <p>Marca: {{ $device->brand }}</p>
-                <p>Modelo: {{ $device->model }}</p>
-                <p>Número de serie: {{ $device->serial_number }}</p>
-                <p>Accesorios recibidos: {{ $device->accessories }}</p>
-                <p>Detalle Técnico: {{ $device->physical_condition }}</p>
-            </div>
-        @endforeach
-    </div>
-</div>
-
-<div class="panel" style="margin-top:16px;">
-    <h2>Atención</h2>
-    <p><strong>Modalidad:</strong> {{ $order->service_mode_label }}</p>
-    @if ($order->service_mode === 'precio_definido')
-        @foreach ($order->items as $item)
-            <p><strong>Servicio:</strong> {{ $item->description }}</p>
-            <p><strong>Detalle:</strong> {{ $item->service?->description ?: 'Sin detalle adicional' }}</p>
-            <p><strong>Cantidad:</strong> {{ $item->quantity }}</p>
-            <p><strong>Precio unitario neto:</strong> ${{ number_format((float) $item->unit_price, 0, ',', '.') }}</p>
-            <p><strong>Subtotal neto:</strong> ${{ number_format((float) $item->total, 0, ',', '.') }}</p>
-        @endforeach
-        <p><strong>Descuento:</strong> ${{ number_format((float) $order->discount_amount, 0, ',', '.') }}</p>
-        <p><strong>Neto:</strong> ${{ number_format((float) $order->net_amount, 0, ',', '.') }}</p>
-        <p><strong>IVA (19%):</strong> ${{ number_format((float) $order->tax_amount, 0, ',', '.') }}</p>
-        <h2>Total: ${{ number_format((float) $order->total_amount, 0, ',', '.') }}</h2>
-        <p><strong>Aceptado por el cliente:</strong> {{ $order->customer_accepted_at?->format('d-m-Y H:i') ?? 'No registrado' }}</p>
-    @elseif($order->items->isNotEmpty())
-        <h3>Traslado a domicilio</h3>
-        @foreach($order->items as $item)<p><strong>{{$item->description}}:</strong> ${{number_format((float)$item->total,0,',','.')}} neto</p>@endforeach
-        <p><strong>Neto:</strong> ${{number_format((float)$order->net_amount,0,',','.')}} · <strong>IVA:</strong> ${{number_format((float)$order->tax_amount,0,',','.')}} · <strong>Total:</strong> ${{number_format((float)$order->total_amount,0,',','.')}}</p>
-    @endif
-</div>
-
-@if ($order->service_mode === 'diagnostico')
-<div class="panel" style="margin-top:16px;">
-    <h2>Presupuestos</h2>
-    @if($order->diagnosis_due_at)<p><strong>Diagnóstico comprometido:</strong> {{$order->diagnosis_due_at->format('d-m-Y H:i')}} ({{$order->company->technical_diagnostic_hours ?? 24}} horas hábiles)</p>@endif
-    <table>
-        <thead>
-        <tr>
-            <th>Número</th>
-            <th>Estado</th>
-            <th>Válido hasta</th>
-            <th>Total</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
-        @forelse ($order->quotes as $quote)
-            <tr>
-                <td>{{ $quote->quote_number }}<br><small>{{ $quote->quote_type === 'closure' ? 'Liquidación de cierre' : 'Reparación' }}</small></td>
-                <td><span class="badge">{{ $quote->status_label }}</span></td>
-                <td>{{ optional($quote->valid_until)->format('d-m-Y') ?? 'Sin fecha' }}</td>
-                <td>${{ number_format($quote->total_amount, 0, ',', '.') }}</td>
-                <td>
-                    <div class="actions" style="margin:0;">
-                        <a class="btn" href="{{ route('repair-quotes.show', $quote) }}">{{ $quote->quote_type === 'closure' ? 'Ver liquidación' : 'Ver presupuesto' }}</a>
-                        <form method="post" action="{{ route('repair-quotes.destroy', $quote) }}" onsubmit="return confirm('¿Seguro que deseas eliminar este presupuesto? La orden volverá al estado Diagnosticado.');">
-                            @csrf
-                            @method('delete')
-                            <button class="btn danger" type="submit">Eliminar</button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
-        @empty
-            <tr><td colspan="5">Esta orden aún no tiene presupuestos.</td></tr>
-        @endforelse
-        </tbody>
-    </table>
-</div>
-@endif
-
 @php
-    $orderDevices = $order->devices->isNotEmpty() ? $order->devices : collect([$order->device]);
+    $orderDevices = $order->devices->isNotEmpty() ? $order->devices : collect([$order->device])->filter();
     $budgetTotal = $order->payableTotal();
     $paidTotal = $order->paidTotal();
     $balanceTotal = $order->pendingBalance();
+    $regularQuotes = $order->quotes->where('quote_type', '!=', 'closure');
 @endphp
+<div class="page-head"><div><h1>{{ $order->code }}</h1><p class="muted">Orden de servicio técnico · {{ $order->company->name }}</p></div><div class="head-actions">
+@if($order->service_mode === 'diagnostico' && $order->technical_diagnosis && $regularQuotes->where('status', '!=', 'rechazado')->isEmpty())<a class="btn primary" href="{{ route('repair-orders.quotes.create', $order) }}">Crear presupuesto</a>@endif
+<a class="btn warning" target="_blank" href="{{ route('repair-orders.print', $order) }}">Imprimir recepción</a><a class="btn" href="{{ route('repair-orders.edit', $order) }}">Editar</a>
+@if($order->client->email)<form method="post" action="{{ route('repair-orders.send-email', $order) }}">@csrf<button class="btn">{{ $order->email_status === 'enviado' ? 'Reenviar correo' : 'Enviar correo' }}</button></form>@endif
+<form method="post" action="{{ route('repair-orders.destroy', $order) }}" onsubmit="return confirm('¿Seguro que deseas eliminar esta orden? Esta acción no se puede deshacer.');">@csrf @method('delete')<button class="btn danger">Eliminar</button></form></div></div>
 
-<div class="panel" style="margin-top:16px;">
-    <div class="page-head" style="margin-bottom:14px;">
-        <div>
-            <h2>Abonos y pagos</h2>
-            <p class="muted">Registra pagos posteriores al ingreso y asigna el abono a un equipo específico cuando corresponda.</p>
-        </div>
-    </div>
+<div class="details"><section class="panel"><h2>Cliente</h2><p><strong>{{ $order->client->name }}</strong><br>{{ $order->client->formatted_rut }}<br>{{ $order->client->email ?: '—' }}<br>{{ $order->client->phone ?: '—' }}<br>{{ $order->client->address ?: '—' }}</p>@if($order->client->region || $order->client->commune)<p class="muted">{{ $order->client->commune }}{{ $order->client->commune && $order->client->region ? ' · ' : '' }}{{ $order->client->region }}</p>@endif</section>
+<section class="panel"><h2>Estado</h2><p><span class="badge">{{ $statuses[$order->status] ?? $order->status }}</span></p><p>Ingreso: {{ $order->created_at->format('d-m-Y H:i') }}<br>Modalidad: {{ $order->service_mode_label }}<br>Diagnóstico comprometido: {{ $order->diagnosis_due_at?->format('d-m-Y H:i') ?: '—' }}<br>Correo: {{ ucfirst($order->email_status ?: 'pendiente') }} @if($order->emailed_at)({{ $order->emailed_at->format('d-m-Y H:i') }})@endif</p>@if($order->email_error)<p class="field-error">{{ $order->email_error }}</p>@endif</section></div>
 
-    <div class="grid stats" style="margin-bottom:16px;">
-        <div class="stat"><span>{{ $order->service_mode === 'precio_definido' ? 'Total acordado' : 'Total presupuesto' }}</span><strong>${{ number_format((float) $budgetTotal, 0, ',', '.') }}</strong></div>
-        <div class="stat"><span>Total abonado</span><strong>${{ number_format((float) $paidTotal, 0, ',', '.') }}</strong></div>
-        <div class="stat"><span>Saldo pendiente</span><strong>${{ number_format((float) $balanceTotal, 0, ',', '.') }}</strong></div>
-        <div class="stat"><span>Abonos</span><strong>{{ $order->payments->count() }}</strong></div>
-    </div>
+<section class="panel spaced"><h2>Equipos</h2>@foreach($orderDevices as $device)<div class="device-block"><div class="info-grid"><p><b>Equipo {{ $loop->iteration }}</b><br>{{ $device->type ?: '—' }}</p><p><b>Marca / modelo</b><br>{{ trim(($device->brand ?? '').' '.($device->model ?? '')) ?: '—' }}</p><p><b>Número de serie</b><br>{{ $device->serial_number ?: '—' }}</p><p><b>Accesorios</b><br>{{ $device->accessories ?: '—' }}</p></div><p><b>Detalle técnico</b><br>{!! nl2br(e($device->physical_condition ?: '—')) !!}</p></div>@endforeach<p><b>Problema informado</b><br>{!! nl2br(e($order->reported_problem ?: '—')) !!}</p><p><b>Observaciones iniciales</b><br>{!! nl2br(e($order->initial_observations ?: '—')) !!}</p></section>
 
-    <form method="post" action="{{ route('repair-orders.payments.store', $order) }}">
-        @csrf
-        <div class="form-grid">
-            <label>Asignar a
-                <select name="device_id">
-                    <option value="">Orden completa</option>
-                    @foreach ($orderDevices as $device)
-                        <option value="{{ $device->id }}" @selected((int) old('device_id') === $device->id)>
-                            Equipo {{ $loop->iteration }} - {{ $device->type }} {{ $device->brand }} {{ $device->model }}
-                        </option>
-                    @endforeach
-                </select>
-            </label>
+@if($order->service_mode === 'diagnostico' && $regularQuotes->isEmpty())
+<section class="panel spaced"><h2>{{ $order->technical_diagnosis ? 'Diagnóstico registrado' : 'Registrar diagnóstico' }}</h2><p class="muted">Documenta el resultado de la revisión técnica. Al guardarlo, la orden quedará lista para generar el presupuesto.</p><form method="post" action="{{ route('repair-orders.diagnosis.store', $order) }}" enctype="multipart/form-data">@csrf<label>Diagnóstico técnico<textarea name="technical_diagnosis" required>{{ old('technical_diagnosis', $order->technical_diagnosis) }}</textarea></label>@error('technical_diagnosis')<p class="field-error">{{ $message }}</p>@enderror<label class="upload-label">Imágenes del diagnóstico (máximo 3)<input type="file" name="diagnosis_photos[]" accept="image/jpeg,image/png,image/webp" multiple></label><p class="muted">JPG, PNG o WebP de hasta 10 MB cada una.</p>@error('diagnosis_photos')<p class="field-error">{{ $message }}</p>@enderror @error('diagnosis_photos.*')<p class="field-error">{{ $message }}</p>@enderror<div class="actions"><button class="btn primary">{{ $order->technical_diagnosis ? 'Actualizar diagnóstico' : 'Guardar diagnóstico' }}</button></div></form></section>
+@elseif($order->technical_diagnosis)<section class="panel spaced"><h2>Diagnóstico técnico</h2><p>{!! nl2br(e($order->technical_diagnosis)) !!}</p></section>@endif
 
-            <label>Presupuesto relacionado
-                <select name="repair_quote_id">
-                    <option value="">Sin presupuesto específico</option>
-                    @foreach ($order->quotes as $quote)
-                        <option value="{{ $quote->id }}" @selected((int) old('repair_quote_id') === $quote->id)>
-                            {{ $quote->quote_number }} - {{ $quote->status_label }} - ${{ number_format((float) $quote->total_amount, 0, ',', '.') }}
-                        </option>
-                    @endforeach
-                </select>
-            </label>
+@if($order->service_mode === 'precio_definido' || $order->items->isNotEmpty())<section class="panel spaced"><h2>Atención y valores</h2>@foreach($order->items as $item)<div class="service-line"><div><strong>{{ $item->description }}</strong>@if($item->service?->description)<br><span class="muted">{{ $item->service->description }}</span>@endif</div><div>{{ $item->quantity }} × ${{ number_format((float)$item->unit_price,0,',','.') }}</div><strong>${{ number_format((float)$item->total,0,',','.') }} neto</strong></div>@endforeach<div class="amounts"><span>Descuento <b>${{ number_format((float)$order->discount_amount,0,',','.') }}</b></span><span>Neto <b>${{ number_format((float)$order->net_amount,0,',','.') }}</b></span><span>IVA <b>${{ number_format((float)$order->tax_amount,0,',','.') }}</b></span><span>Total <b>${{ number_format((float)$order->total_amount,0,',','.') }}</b></span></div></section>@endif
 
-            <label>Tipo
-                <select name="payment_type" required>
-                    @foreach ($paymentTypes as $value => $label)
-                        <option value="{{ $value }}" @selected(old('payment_type', 'abono') === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </label>
+@if($order->service_mode === 'diagnostico')<section class="panel spaced"><h2>Presupuestos</h2>@forelse($order->quotes as $quote)<div class="quote-line"><div><a href="{{ route('repair-quotes.show',$quote) }}"><strong>{{ $quote->quote_number }}</strong></a><br><span class="badge">{{ $quote->status_label }}</span> <small>{{ $quote->quote_type === 'closure' ? 'Liquidación de cierre' : 'Reparación' }}</small></div><div class="quote-value">Total<br><strong>${{ number_format((float)$quote->total_amount,0,',','.') }}</strong></div><a class="btn" href="{{ route('repair-quotes.show',$quote) }}">{{ $quote->quote_type === 'closure' ? 'Ver liquidación' : 'Ver presupuesto' }}</a><form method="post" action="{{ route('repair-quotes.destroy',$quote) }}" onsubmit="return confirm('¿Seguro que deseas eliminar este presupuesto?');">@csrf @method('delete')<button class="btn danger">Eliminar</button></form></div>@empty<p class="muted">Esta orden aún no tiene presupuestos.</p>@endforelse</section>@endif
 
-            <label>Método de pago
-                <select name="payment_method" required>
-                    @foreach ($paymentMethods as $value => $label)
-                        <option value="{{ $value }}" @selected(old('payment_method', 'transferencia') === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </label>
+<section class="panel spaced"><h2>Abonos y pagos</h2><div class="amounts"><span>{{ $order->service_mode === 'precio_definido' ? 'Total acordado' : 'Total presupuesto' }} <b>${{ number_format($budgetTotal,0,',','.') }}</b></span><span>Total abonado <b>${{ number_format($paidTotal,0,',','.') }}</b></span><span>Saldo pendiente <b>${{ number_format($balanceTotal,0,',','.') }}</b></span></div>
+<form class="payment-form" method="post" action="{{ route('repair-orders.payments.store',$order) }}">@csrf<div class="form-grid"><label>Asignar a<select name="device_id"><option value="">Orden completa</option>@foreach($orderDevices as $device)<option value="{{ $device->id }}" @selected((int)old('device_id') === $device->id)>Equipo {{ $loop->iteration }} · {{ $device->type }} {{ $device->brand }} {{ $device->model }}</option>@endforeach</select></label><label>Presupuesto relacionado<select name="repair_quote_id"><option value="">Sin presupuesto específico</option>@foreach($order->quotes as $quote)<option value="{{ $quote->id }}" @selected((int)old('repair_quote_id') === $quote->id)>{{ $quote->quote_number }} · ${{ number_format((float)$quote->total_amount,0,',','.') }}</option>@endforeach</select></label><label>Tipo<select name="payment_type" required>@foreach($paymentTypes as $value=>$label)<option value="{{$value}}" @selected(old('payment_type','abono')===$value)>{{$label}}</option>@endforeach</select></label><label>Medio de pago<select name="payment_method" required>@foreach($paymentMethods as $value=>$label)<option value="{{$value}}" @selected(old('payment_method','transferencia')===$value)>{{$label}}</option>@endforeach</select></label><label>Monto<input type="number" name="amount" min="1" step="1" value="{{ old('amount') }}" required></label><label>Fecha<input type="date" name="payment_date" value="{{ old('payment_date',now()->format('Y-m-d')) }}" required></label><label class="full">Notas<textarea name="notes">{{ old('notes') }}</textarea></label></div><div class="actions"><button class="btn primary">Registrar abono</button></div></form>
+@if($order->payments->isNotEmpty())<div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Asignación</th><th>Tipo</th><th>Medio</th><th>Monto</th><th>Usuario</th><th></th></tr></thead><tbody>@foreach($order->payments->sortByDesc('payment_date') as $payment)<tr><td>{{ $payment->payment_date->format('d-m-Y') }}</td><td>{{ $payment->device ? trim($payment->device->type.' '.$payment->device->brand.' '.$payment->device->model) : 'Orden completa' }}@if($payment->repairQuote)<br><span class="muted">{{ $payment->repairQuote->quote_number }}</span>@endif</td><td>{{ $payment->payment_type_label }}</td><td>{{ $payment->payment_method_label }}</td><td>${{ number_format((float)$payment->amount,0,',','.') }}</td><td>{{ $payment->creator?->name ?: '—' }}</td><td><form method="post" action="{{ route('repair-orders.payments.destroy',[$order,$payment]) }}" onsubmit="return confirm('¿Eliminar este abono?')">@csrf @method('delete')<button class="btn danger">Eliminar</button></form></td></tr>@if($payment->notes)<tr><td></td><td colspan="6" class="muted">{{ $payment->notes }}</td></tr>@endif @endforeach</tbody></table></div>@endif</section>
 
-            <label>Monto
-                <input type="number" name="amount" min="1" step="1" value="{{ old('amount') }}" required>
-            </label>
-
-            <label>Fecha del abono
-                <input type="date" name="payment_date" value="{{ old('payment_date', now()->format('Y-m-d')) }}" required>
-            </label>
-
-            <label class="full">Observación
-                <textarea name="notes">{{ old('notes') }}</textarea>
-            </label>
-        </div>
-
-        <div class="actions">
-            <button class="btn primary" type="submit">Registrar abono</button>
-        </div>
-    </form>
-
-    <table style="margin-top:16px;">
-        <thead>
-        <tr>
-            <th>Fecha</th>
-            <th>Asignación</th>
-            <th>Tipo</th>
-            <th>Método</th>
-            <th>Monto</th>
-            <th>Usuario</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
-        @forelse ($order->payments->sortByDesc('payment_date') as $payment)
-            <tr>
-                <td>{{ $payment->payment_date->format('d-m-Y') }}</td>
-                <td>
-                    @if ($payment->device)
-                        {{ $payment->device->type }} {{ $payment->device->brand }} {{ $payment->device->model }}
-                    @else
-                        Orden completa
-                    @endif
-                    @if ($payment->repairQuote)
-                        <br><span class="muted">{{ $payment->repairQuote->quote_number }}</span>
-                    @endif
-                </td>
-                <td>{{ $payment->payment_type_label }}</td>
-                <td>{{ $payment->payment_method_label }}</td>
-                <td>${{ number_format((float) $payment->amount, 0, ',', '.') }}</td>
-                <td>{{ $payment->creator->name ?? 'Sin usuario' }}</td>
-                <td>
-                    <form method="post" action="{{ route('repair-orders.payments.destroy', [$order, $payment]) }}" onsubmit="return confirm('¿Seguro que deseas eliminar este abono?');">
-                        @csrf
-                        @method('delete')
-                        <button class="btn danger" type="submit">Eliminar</button>
-                    </form>
-                </td>
-            </tr>
-            @if ($payment->notes)
-                <tr>
-                    <td></td>
-                    <td colspan="6"><span class="muted">{{ $payment->notes }}</span></td>
-                </tr>
-            @endif
-        @empty
-            <tr><td colspan="7">Esta orden aún no tiene abonos registrados.</td></tr>
-        @endforelse
-        </tbody>
-    </table>
-</div>
-
-<div class="panel" style="margin-top:16px;">
-    <h2>Historial de estados</h2>
-    <table>
-        <thead>
-        <tr>
-            <th>Fecha</th>
-            <th>Estado</th>
-            <th>Comentario</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach ($order->statusLogs as $log)
-            <tr>
-                <td>{{ $log->created_at->format('d-m-Y H:i') }}</td>
-                <td>{{ $statuses[$log->status] ?? $log->status }}</td>
-                <td>{{ $log->comment }}</td>
-            </tr>
-        @endforeach
-        </tbody>
-    </table>
-</div>
+<section class="panel spaced"><h2>Fotografías de recepción</h2><div class="photos">@forelse($order->photos as $photo)<figure><a target="_blank" href="{{ route('repair-order-photos.show',$photo) }}"><img src="{{ route('repair-order-photos.show',$photo) }}" alt="Fotografía {{ $loop->iteration }}"></a><figcaption class="muted">{{ ucfirst($photo->category) }} · {{ number_format($photo->size/1024,0,',','.') }} KB</figcaption></figure>@empty<p class="muted">No se adjuntaron fotografías.</p>@endforelse</div></section>
+<section class="panel spaced"><h2>Historial</h2><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Estado</th><th>Comentario</th></tr></thead><tbody>@foreach($order->statusLogs->sortByDesc('created_at') as $log)<tr><td>{{ $log->created_at->format('d-m-Y H:i') }}</td><td>{{ $statuses[$log->status] ?? $log->status }}</td><td>{{ $log->comment ?: '—' }}</td></tr>@endforeach</tbody></table></div></section>
+<style>.head-actions,.photos,.amounts{display:flex;gap:10px;flex-wrap:wrap}.head-actions{justify-content:flex-end}.head-actions form,.quote-line form{margin:0}.spaced{margin-top:16px}.info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.device-block{border-bottom:1px solid var(--line);margin-bottom:14px;padding-bottom:8px}.device-block:last-of-type{border-bottom:0}.photos figure{margin:0;width:190px}.photos img{width:190px;height:130px;object-fit:cover;border-radius:7px}.photos figcaption{margin-top:4px}.amounts span{padding:12px 18px;background:#f1f5f9;border-radius:7px}.amounts b{display:block;font-size:20px}.table-scroll{overflow-x:auto}.quote-line,.service-line{display:flex;align-items:center;gap:20px;padding:12px 0;border-bottom:1px solid var(--line)}.quote-value{margin-left:auto}.service-line>div:first-child{flex:1}.payment-form{margin:18px 0}.upload-label{display:block;margin-top:12px}@media(max-width:760px){.info-grid{grid-template-columns:1fr 1fr}.quote-line,.service-line{align-items:flex-start;flex-wrap:wrap}.quote-value{margin-left:0}.head-actions{justify-content:flex-start}}</style>
 @endsection
