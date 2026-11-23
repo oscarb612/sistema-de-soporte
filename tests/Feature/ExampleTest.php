@@ -454,7 +454,11 @@ class ExampleTest extends TestCase
         $this->actingAs($user)->get("/repair-quotes/{$quote->id}")
             ->assertOk()->assertSee('Saldo pendiente')->assertSee('$125.000');
         $this->actingAs($user)->get("/repair-orders/{$order->id}/print")
-            ->assertOk()->assertSee('Saldo pendiente')->assertSee('$125.000');
+            ->assertOk()->assertDontSee('Saldo pendiente')->assertDontSee('$125.000');
+
+        $payment = $order->payments()->where('repair_quote_id', $quote->id)->firstOrFail();
+        $this->actingAs($user)->get("/repair-orders/{$order->id}/payments/{$payment->id}/print")
+            ->assertOk()->assertSee('Comprobante de abono')->assertSee('Saldo pendiente')->assertSee('$125.000');
 
         $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
             'repair_quote_id' => $quote->id, 'payment_type' => 'abono', 'payment_method' => 'efectivo',
@@ -466,8 +470,57 @@ class ExampleTest extends TestCase
             'repair_quote_id' => $quote->id, 'payment_type' => 'pago_final', 'payment_method' => 'transferencia',
             'amount' => 10000, 'payment_date' => '2026-11-03',
         ])->assertRedirect("/repair-orders/{$order->id}");
+        $this->assertSame('presupuesto_emitido', $order->fresh()->status);
+        $this->assertSame(105000.0, $order->fresh()->pendingBalance());
+
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
+            'repair_quote_id' => $quote->id, 'payment_type' => 'pago_final', 'payment_method' => 'transferencia',
+            'amount' => 105000, 'payment_date' => '2026-11-04',
+        ])->assertRedirect("/repair-orders/{$order->id}");
         $this->assertSame('finalizado', $order->fresh()->status);
-        $this->assertSame('Finalizado', $order->fresh()->status_label);
+    }
+
+    public function test_one_payment_can_be_distributed_between_two_quotes(): void
+    {
+        $company = Company::create(['name' => 'Empresa Distribución', 'rut' => '76.555.444-3']);
+        $user = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['company_id' => $company->id, 'name' => 'Cliente Distribución', 'rut' => '12.345.678-5']);
+        $device = Device::create(['company_id' => $company->id, 'client_id' => $client->id, 'type' => 'Notebook']);
+        $order = RepairOrder::create([
+            'company_id' => $company->id, 'client_id' => $client->id, 'device_id' => $device->id,
+            'code' => 'OT-DIST', 'status' => 'presupuesto_emitido', 'service_mode' => 'diagnostico',
+            'reported_problem' => 'Dos reparaciones', 'technical_diagnosis' => 'Dos trabajos', 'total_amount' => 0,
+        ]);
+        $first = RepairQuote::create([
+            'company_id' => $company->id, 'repair_order_id' => $order->id, 'quote_number' => 'PRES-DIST-1',
+            'status' => 'aprobado', 'diagnosis_summary' => 'Trabajo uno', 'net_amount' => 84034,
+            'tax_amount' => 15966, 'total_amount' => 100000,
+        ]);
+        $second = RepairQuote::create([
+            'company_id' => $company->id, 'repair_order_id' => $order->id, 'quote_number' => 'PRES-DIST-2',
+            'status' => 'aprobado', 'diagnosis_summary' => 'Trabajo dos', 'net_amount' => 42017,
+            'tax_amount' => 7983, 'total_amount' => 50000,
+        ]);
+
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
+            'payment_type' => 'abono', 'payment_method' => 'transferencia', 'amount' => 120000,
+            'payment_date' => '2026-11-23', 'allocations' => [$first->id => 100000, $second->id => 20000],
+        ])->assertRedirect("/repair-orders/{$order->id}");
+
+        $payment = $order->payments()->firstOrFail();
+        $this->assertNull($payment->repair_quote_id);
+        $this->assertDatabaseHas('repair_order_payment_allocations', ['repair_order_payment_id' => $payment->id, 'repair_quote_id' => $first->id, 'amount' => 100000]);
+        $this->assertDatabaseHas('repair_order_payment_allocations', ['repair_order_payment_id' => $payment->id, 'repair_quote_id' => $second->id, 'amount' => 20000]);
+        $this->assertSame(150000.0, $order->fresh()->payableTotal());
+        $this->assertSame(120000.0, $order->fresh()->paidTotal());
+        $this->assertSame(30000.0, $order->fresh()->pendingBalance());
+        $this->assertNotSame('finalizado', $order->fresh()->status);
+
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
+            'payment_type' => 'pago_final', 'payment_method' => 'efectivo', 'amount' => 30000,
+            'payment_date' => '2026-11-25', 'allocations' => [$second->id => 30000],
+        ])->assertRedirect("/repair-orders/{$order->id}");
+        $this->assertSame('finalizado', $order->fresh()->status);
     }
 
     public function test_repair_order_can_be_deleted(): void
@@ -751,6 +804,7 @@ class ExampleTest extends TestCase
         $this->actingAs($admin)->get("/data-recovery-quotes/{$quote->id}")
             ->assertOk()
             ->assertSee('area-link recovery active', false)
+            ->assertSee('class="area-link recovery active" href="'.route('data-recovery.dashboard').'">Recuperadata', false)
             ->assertSee('Casos')
             ->assertSee('href="'.route('data-recovery.dashboard').'">Panel', false);
         $this->actingAs($admin)->get('/data-recovery-dashboard')

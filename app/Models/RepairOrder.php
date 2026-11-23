@@ -149,12 +149,15 @@ class RepairOrder extends Model
     public function getStatusLabelAttribute(): string
     {
         if (! in_array($this->status, self::TERMINAL_STATUSES, true)) {
-            $activeQuote = $this->activePayableQuote();
-            $payments = $this->relationLoaded('payments') ? $this->payments : $this->payments()->get();
-            $installmentCount = $payments
+            $payableQuoteIds = $this->payableQuotes()->pluck('id');
+            $installmentCount = $this->payments()
                 ->where('payment_type', 'abono')
-                ->when($activeQuote, fn ($items) => $items->where('repair_quote_id', $activeQuote->id))
-                ->count();
+                ->where(function ($query) use ($payableQuoteIds) {
+                    $query->whereHas('allocations', fn ($allocation) => $allocation->whereIn('repair_quote_id', $payableQuoteIds))
+                        ->orWhere(function ($legacy) use ($payableQuoteIds) {
+                            $legacy->whereIn('repair_quote_id', $payableQuoteIds)->whereDoesntHave('allocations');
+                        });
+                })->count();
 
             if ($installmentCount > 0) {
                 return $this->installmentOrdinal($installmentCount).' abono';
@@ -206,23 +209,39 @@ class RepairOrder extends Model
 
     public function payableTotal(): float
     {
-        $activeQuote = $this->activePayableQuote();
-
-        return $activeQuote ? (float) $activeQuote->total_amount : (float) $this->total_amount;
+        $quotes = $this->payableQuotes();
+        return $quotes->isNotEmpty() ? (float) $quotes->sum('total_amount') : (float) $this->total_amount;
     }
 
     public function paidTotal(): float
     {
-        $activeQuote = $this->activePayableQuote();
-        $payments = $this->relationLoaded('payments') ? $this->payments : $this->payments()->get();
+        if ($this->service_mode !== 'diagnostico') {
+            return (float) $this->payments()->sum('amount');
+        }
 
-        return (float) ($activeQuote
-            ? $payments->where('repair_quote_id', $activeQuote->id)->sum('amount')
-            : $payments->sum('amount'));
+        $quoteIds = $this->payableQuotes()->pluck('id');
+        $allocated = (float) RepairOrderPaymentAllocation::query()
+            ->whereIn('repair_quote_id', $quoteIds)
+            ->sum('amount');
+        $legacy = (float) $this->payments()
+            ->whereIn('repair_quote_id', $quoteIds)
+            ->whereDoesntHave('allocations')
+            ->sum('amount');
+
+        return $allocated + $legacy;
     }
 
     public function pendingBalance(): float
     {
         return max($this->payableTotal() - $this->paidTotal(), 0);
+    }
+
+    public function payableQuotes()
+    {
+        $quotes = $this->relationLoaded('quotes') ? $this->quotes : $this->quotes()->get();
+        $regular = $quotes->where('quote_type', '!=', 'closure')->whereIn('status', ['emitido', 'aprobado']);
+        return $regular->isNotEmpty()
+            ? $regular->values()
+            : $quotes->where('quote_type', 'closure')->whereIn('status', ['emitido', 'aprobado'])->values();
     }
 }

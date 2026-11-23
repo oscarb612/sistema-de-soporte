@@ -71,6 +71,22 @@ class RepairQuote extends Model
         return $this->hasMany(RepairOrderPayment::class);
     }
 
+    public function paymentAllocations(): HasMany
+    {
+        return $this->hasMany(RepairOrderPaymentAllocation::class);
+    }
+
+    public function paidTotal(): float
+    {
+        $allocated = (float) $this->paymentAllocations()->sum('amount');
+        return $allocated > 0 ? $allocated : (float) $this->payments()->sum('amount');
+    }
+
+    public function pendingBalance(): float
+    {
+        return max((float) $this->total_amount - $this->paidTotal(), 0);
+    }
+
     public function getStatusLabelAttribute(): string
     {
         return self::STATUSES[$this->status] ?? $this->status;

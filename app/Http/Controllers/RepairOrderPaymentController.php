@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class RepairOrderPaymentController extends Controller
@@ -23,7 +24,8 @@ class RepairOrderPaymentController extends Controller
             $deviceIds = [$repairOrder->device_id];
         }
 
-        $quoteIds = $repairOrder->quotes()->pluck('id')->all();
+        $availableQuotes = $repairOrder->quotes()->whereIn('status', ['emitido', 'aprobado'])->get();
+        $quoteIds = $availableQuotes->pluck('id')->all();
 
         $data = $request->validate([
             'device_id' => ['nullable', 'integer', Rule::in($deviceIds)],
@@ -33,19 +35,46 @@ class RepairOrderPaymentController extends Controller
             'amount' => ['required', 'numeric', 'min:1'],
             'payment_date' => ['required', 'date'],
             'notes' => ['nullable', 'string'],
+            'allocations' => ['nullable', 'array'],
+            'allocations.*' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        if (! isset($data['repair_quote_id']) && $activeQuote = $repairOrder->activePayableQuote()) {
-            $data['repair_quote_id'] = $activeQuote->id;
+        $allocations = collect($data['allocations'] ?? [])
+            ->filter(fn ($amount) => (float) $amount > 0)
+            ->mapWithKeys(fn ($amount, $quoteId) => [(int) $quoteId => (float) $amount]);
+
+        if ($allocations->isEmpty() && isset($data['repair_quote_id'])) {
+            $allocations = collect([(int) $data['repair_quote_id'] => (float) $data['amount']]);
         }
 
-        $payment = DB::transaction(function () use ($data, $repairOrder, $request) {
+        if ($repairOrder->service_mode === 'diagnostico') {
+            if ($allocations->isEmpty() || $allocations->keys()->diff($quoteIds)->isNotEmpty()) {
+                throw ValidationException::withMessages(['allocations' => 'Debes distribuir el abono entre los presupuestos disponibles.']);
+            }
+            if (abs($allocations->sum() - (float) $data['amount']) > 0.009) {
+                throw ValidationException::withMessages(['allocations' => 'La distribución debe ser igual al monto recibido.']);
+            }
+            foreach ($availableQuotes as $quote) {
+                if ((float) $allocations->get($quote->id, 0) > $quote->pendingBalance() + 0.009) {
+                    throw ValidationException::withMessages(['allocations' => "El monto asignado a {$quote->quote_number} supera su saldo pendiente."]);
+                }
+            }
+        }
+
+        unset($data['allocations']);
+        $data['repair_quote_id'] = $allocations->count() === 1 ? $allocations->keys()->first() : null;
+
+        $payment = DB::transaction(function () use ($data, $allocations, $repairOrder, $request) {
             $payment = RepairOrderPayment::create([
                 ...$data,
                 'company_id' => $repairOrder->company_id,
                 'repair_order_id' => $repairOrder->id,
                 'created_by' => $request->user()->id,
             ]);
+
+            foreach ($allocations as $quoteId => $amount) {
+                $payment->allocations()->create(['repair_quote_id' => $quoteId, 'amount' => $amount]);
+            }
 
             $this->finalizeIfFullyPaid($repairOrder, $payment);
 
@@ -79,7 +108,7 @@ class RepairOrderPaymentController extends Controller
 
         return view('repair-orders.payment-print', [
             'order' => $repairOrder->load(['company', 'client', 'devices']),
-            'payment' => $payment->load(['repairQuote', 'device', 'creator']),
+            'payment' => $payment->load(['repairQuote', 'allocations.quote', 'device', 'creator']),
         ]);
     }
 
@@ -115,27 +144,14 @@ class RepairOrderPaymentController extends Controller
 
     private function finalizeIfFullyPaid(RepairOrder $repairOrder, RepairOrderPayment $payment): void
     {
-        if ($payment->payment_type === 'pago_final') {
-            $this->finalizeOrder($repairOrder, 'Pago final registrado.');
-
+        $repairOrder->unsetRelation('payments');
+        if ($repairOrder->pendingBalance() > 0) {
             return;
         }
 
-        if (! $payment->repair_quote_id) {
-            return;
-        }
-
-        $quote = $repairOrder->quotes()
-            ->whereKey($payment->repair_quote_id)
-            ->where('quote_type', '!=', 'closure')
-            ->where('status', 'aprobado')
-            ->first();
-
-        if (! $quote || (float) $quote->payments()->sum('amount') < (float) $quote->total_amount) {
-            return;
-        }
-
-        $this->finalizeOrder($repairOrder, 'Presupuesto aprobado pagado completamente: '.$quote->quote_number);
+        $this->finalizeOrder($repairOrder, $repairOrder->service_mode === 'diagnostico'
+            ? 'Todos los presupuestos cobrables fueron pagados completamente.'
+            : 'Servicio pagado completamente.');
     }
 
     private function finalizeOrder(RepairOrder $repairOrder, string $comment): void
@@ -154,7 +170,7 @@ class RepairOrderPaymentController extends Controller
 
     private function sendPaymentEmail(RepairOrderPayment $payment, Request $request): bool
     {
-        $payment->load(['company', 'repairOrder.client', 'repairOrder.devices', 'repairQuote', 'device', 'creator']);
+        $payment->load(['company', 'repairOrder.client', 'repairOrder.devices', 'repairOrder.quotes', 'repairOrder.payments', 'repairQuote', 'allocations.quote', 'device', 'creator']);
         $order = $payment->repairOrder;
         $company = $payment->company;
 

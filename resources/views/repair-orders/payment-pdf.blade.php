@@ -7,7 +7,7 @@
 <h2>Cliente</h2>
 <p><strong>{{ $order->client->name }}</strong> · RUT {{ $order->client->formatted_rut }}<br>{{ $order->client->email ?: 'Correo no informado' }} · {{ $order->client->phone ?: 'Teléfono no informado' }}</p>
 <h2>Detalle del abono</h2>
-<table><tr><th>Concepto</th><th>Medio de pago</th><th>Presupuesto</th><th class="money">Monto abonado</th></tr><tr><td>{{ $payment->payment_type_label }}</td><td>{{ $payment->payment_method_label }}</td><td>{{ $payment->repairQuote?->quote_number ?: 'Orden completa' }}</td><td class="money total">${{ number_format((float) $payment->amount, 0, ',', '.') }}</td></tr></table>
+<table><tr><th>Concepto</th><th>Medio de pago</th><th>Presupuesto</th><th class="money">Monto asignado</th></tr>@forelse($payment->allocations as $allocation)<tr><td>{{ $payment->payment_type_label }}</td><td>{{ $payment->payment_method_label }}</td><td>{{ $allocation->quote->quote_number }}</td><td class="money">${{ number_format((float)$allocation->amount,0,',','.') }}</td></tr>@empty<tr><td>{{ $payment->payment_type_label }}</td><td>{{ $payment->payment_method_label }}</td><td>Orden completa</td><td class="money">${{ number_format((float)$payment->amount,0,',','.') }}</td></tr>@endforelse<tr><td colspan="3" class="total">Total recibido</td><td class="money total">${{ number_format((float)$payment->amount,0,',','.') }}</td></tr></table>
 @if($payment->device)<p><strong>Equipo:</strong> {{ trim($payment->device->type.' '.$payment->device->brand.' '.$payment->device->model) }}</p>@endif
 @if($payment->notes)<p><strong>Notas:</strong> {{ $payment->notes }}</p>@endif
 <h2>Resumen</h2>

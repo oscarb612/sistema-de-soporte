@@ -165,6 +165,7 @@ class RepairOrderController extends Controller
                 'payments.device',
                 'payments.repairQuote',
                 'payments.creator',
+                'payments.allocations.quote',
                 'items.service',
                 'photos',
                 'homeServicePreorder',

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RepairOrderPayment extends Model
 {
@@ -66,6 +67,11 @@ class RepairOrderPayment extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(RepairOrderPaymentAllocation::class);
+    }
+
     public function getPaymentTypeLabelAttribute(): string
     {
         return self::TYPES[$this->payment_type] ?? $this->payment_type;
@@ -78,21 +84,31 @@ class RepairOrderPayment extends Model
 
     public function receiptTotal(): float
     {
-        return (float) ($this->repairQuote?->total_amount ?? $this->repairOrder->total_amount);
+        return (float) $this->repairOrder->payableTotal();
     }
 
     public function paidThroughThisPayment(): float
     {
-        return (float) $this->repairOrder->payments()
-            ->when($this->repair_quote_id,
-                fn ($query) => $query->where('repair_quote_id', $this->repair_quote_id),
-                fn ($query) => $query->whereNull('repair_quote_id'))
-            ->where('id', '<=', $this->id)
+        if ($this->repairOrder->service_mode !== 'diagnostico') {
+            return (float) $this->repairOrder->payments()->where('id', '<=', $this->id)->sum('amount');
+        }
+
+        $quoteIds = $this->repairOrder->payableQuotes()->pluck('id');
+        $allocated = (float) RepairOrderPaymentAllocation::query()
+            ->whereIn('repair_quote_id', $quoteIds)
+            ->whereHas('payment', fn ($query) => $query->where('repair_order_id', $this->repair_order_id)->where('id', '<=', $this->id))
             ->sum('amount');
+        $legacy = (float) $this->repairOrder->payments()
+            ->where('id', '<=', $this->id)
+            ->whereIn('repair_quote_id', $quoteIds)
+            ->whereDoesntHave('allocations')
+            ->sum('amount');
+
+        return $allocated + $legacy;
     }
 
     public function balanceAfterPayment(): float
     {
-        return max($this->receiptTotal() - $this->paidThroughThisPayment(), 0);
+        return max($this->repairOrder->payableTotal() - $this->paidThroughThisPayment(), 0);
     }
 }
