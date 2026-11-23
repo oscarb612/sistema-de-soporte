@@ -210,7 +210,11 @@ class RepairOrder extends Model
     public function payableTotal(): float
     {
         $quotes = $this->payableQuotes();
-        return $quotes->isNotEmpty() ? (float) $quotes->sum('total_amount') : (float) $this->total_amount;
+        if ($this->service_mode === 'diagnostico') {
+            return (float) $quotes->sum('total_amount');
+        }
+
+        return (float) $this->total_amount;
     }
 
     public function paidTotal(): float
@@ -239,7 +243,7 @@ class RepairOrder extends Model
     public function payableQuotes()
     {
         $quotes = $this->relationLoaded('quotes') ? $this->quotes : $this->quotes()->get();
-        $regular = $quotes->where('quote_type', '!=', 'closure')->whereIn('status', ['emitido', 'aprobado']);
+        $regular = $quotes->where('quote_type', '!=', 'closure')->where('status', 'aprobado');
         return $regular->isNotEmpty()
             ? $regular->values()
             : $quotes->where('quote_type', 'closure')->whereIn('status', ['emitido', 'aprobado'])->values();

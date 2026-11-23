@@ -428,14 +428,9 @@ class ExampleTest extends TestCase
         ]);
         $quote = RepairQuote::create([
             'company_id' => $company->id, 'repair_order_id' => $order->id, 'quote_number' => 'PRES-SALDO',
-            'status' => 'emitido', 'diagnosis_summary' => 'Requiere reparación', 'net_amount' => 210084,
+            'status' => 'aprobado', 'diagnosis_summary' => 'Requiere reparación', 'net_amount' => 210084,
             'tax_amount' => 39916, 'total_amount' => 250000,
         ]);
-
-        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
-            'repair_quote_id' => $oldClosure->id, 'payment_type' => 'abono', 'payment_method' => 'efectivo',
-            'amount' => 20000, 'payment_date' => '2026-11-02',
-        ])->assertRedirect("/repair-orders/{$order->id}");
 
         $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
             'repair_quote_id' => $quote->id, 'payment_type' => 'abono', 'payment_method' => 'transferencia',
@@ -478,6 +473,42 @@ class ExampleTest extends TestCase
             'amount' => 105000, 'payment_date' => '2026-11-04',
         ])->assertRedirect("/repair-orders/{$order->id}");
         $this->assertSame('finalizado', $order->fresh()->status);
+    }
+
+    public function test_only_approved_quotes_are_included_in_payment_totals(): void
+    {
+        $company = Company::create(['name' => 'Empresa Totales Aprobados', 'rut' => '76.444.333-2']);
+        $user = User::factory()->create(['company_id' => $company->id, 'role' => 'admin', 'is_active' => true]);
+        $client = Client::create(['company_id' => $company->id, 'name' => 'Cliente Totales', 'rut' => '12.345.678-5']);
+        $device = Device::create(['company_id' => $company->id, 'client_id' => $client->id, 'type' => 'Notebook']);
+        $order = RepairOrder::create([
+            'company_id' => $company->id, 'client_id' => $client->id, 'device_id' => $device->id,
+            'code' => 'OT-TOTALES', 'status' => 'presupuesto_emitido', 'service_mode' => 'diagnostico',
+            'reported_problem' => 'Dos alternativas', 'technical_diagnosis' => 'Reparación requerida', 'total_amount' => 0,
+        ]);
+        $order->devices()->attach($device);
+        $approved = RepairQuote::create([
+            'company_id' => $company->id, 'repair_order_id' => $order->id, 'quote_number' => 'PRES-APROBADO',
+            'status' => 'aprobado', 'diagnosis_summary' => 'Alternativa aprobada', 'net_amount' => 331933,
+            'tax_amount' => 63067, 'total_amount' => 395000,
+        ]);
+        $rejected = RepairQuote::create([
+            'company_id' => $company->id, 'repair_order_id' => $order->id, 'quote_number' => 'PRES-RECHAZADO',
+            'status' => 'rechazado', 'diagnosis_summary' => 'Alternativa rechazada', 'net_amount' => 142857,
+            'tax_amount' => 27143, 'total_amount' => 170000,
+        ]);
+
+        $this->assertSame(395000.0, $order->fresh()->payableTotal());
+        $this->assertSame([$approved->id], $order->fresh()->payableQuotes()->pluck('id')->all());
+        $this->actingAs($user)->get("/repair-orders/{$order->id}")
+            ->assertOk()
+            ->assertSee('Total aprobado')
+            ->assertSee('$395.000');
+
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/payments", [
+            'repair_quote_id' => $rejected->id, 'payment_type' => 'abono', 'payment_method' => 'transferencia',
+            'amount' => 10000, 'payment_date' => '2026-11-23',
+        ])->assertSessionHasErrors('repair_quote_id');
     }
 
     public function test_one_payment_can_be_distributed_between_two_quotes(): void

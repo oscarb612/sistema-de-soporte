@@ -24,7 +24,8 @@ class RepairOrderPaymentController extends Controller
             $deviceIds = [$repairOrder->device_id];
         }
 
-        $availableQuotes = $repairOrder->quotes()->whereIn('status', ['emitido', 'aprobado'])->get();
+        $repairOrder->loadMissing('quotes');
+        $availableQuotes = $repairOrder->payableQuotes();
         $quoteIds = $availableQuotes->pluck('id')->all();
 
         $data = $request->validate([
