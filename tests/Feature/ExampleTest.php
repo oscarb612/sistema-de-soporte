@@ -247,7 +247,7 @@ class ExampleTest extends TestCase
         $this->assertSame('en_reparacion', $order->fresh()->status);
     }
 
-    public function test_order_with_quote_cannot_create_another_quote(): void
+    public function test_order_with_diagnosis_can_create_multiple_quotes(): void
     {
         $company = Company::create([
             'name' => 'Empresa Presupuesto Unico',
@@ -282,7 +282,16 @@ class ExampleTest extends TestCase
 
         $this->actingAs($user)
             ->get("/repair-orders/{$order->id}/quotes/create")
-            ->assertForbidden();
+            ->assertOk();
+
+        $this->actingAs($user)->post("/repair-orders/{$order->id}/quotes", [
+            'diagnosis_summary' => 'Alternativa con cambio de disco.',
+            'items' => [
+                ['type' => 'repuesto', 'description' => 'Disco SSD', 'quantity' => 1, 'unit_price' => 35000],
+            ],
+        ])->assertRedirect();
+
+        $this->assertSame(2, $order->quotes()->where('quote_type', '!=', 'closure')->count());
     }
 
     public function test_quote_can_be_deleted_when_not_approved(): void

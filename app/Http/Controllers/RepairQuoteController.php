@@ -14,7 +14,6 @@ class RepairQuoteController extends Controller
     {
         $this->authorizeCompanyAccess($repairOrder);
         abort_if($repairOrder->service_mode === 'precio_definido', 403, 'Los servicios con precio definido no requieren presupuesto.');
-        abort_if($repairOrder->quotes()->where('quote_type', '!=', 'closure')->where('status', '!=', 'rechazado')->exists(), 403, 'Esta orden ya tiene un presupuesto activo.');
 
         $repairOrder->load(['company', 'client', 'devices', 'items']);
         $items = [['type' => 'mano_obra', 'description' => 'Mano de obra', 'quantity' => 1, 'unit_price' => 0]];
@@ -33,7 +32,6 @@ class RepairQuoteController extends Controller
     {
         $this->authorizeCompanyAccess($repairOrder);
         abort_if($repairOrder->service_mode === 'precio_definido', 403, 'Los servicios con precio definido no requieren presupuesto.');
-        abort_if($repairOrder->quotes()->where('quote_type', '!=', 'closure')->where('status', '!=', 'rechazado')->exists(), 403, 'Esta orden ya tiene un presupuesto activo.');
 
         $data = $this->validatedData($request);
         $quote = null;
@@ -136,8 +134,21 @@ class RepairQuoteController extends Controller
                 'customer_response_notes' => $data['customer_response_notes'] ?? null,
             ]);
 
-            $this->setOrderStatus($repairQuote->repairOrder, 'rechazado_por_cliente', 'Presupuesto rechazado: ' . $repairQuote->quote_number);
-            $this->createClosureQuote($repairQuote, ! ($data['customer_pickup'] ?? false));
+            $order = $repairQuote->repairOrder;
+            $otherActiveQuotes = $order->quotes()
+                ->whereKeyNot($repairQuote->id)
+                ->where('quote_type', '!=', 'closure')
+                ->whereIn('status', ['emitido', 'aprobado']);
+
+            if ($otherActiveQuotes->exists()) {
+                $status = (clone $otherActiveQuotes)->where('status', 'aprobado')->exists()
+                    ? 'en_reparacion'
+                    : 'presupuesto_emitido';
+                $this->setOrderStatus($order, $status, 'Presupuesto rechazado; la orden mantiene otros presupuestos activos: ' . $repairQuote->quote_number);
+            } else {
+                $this->setOrderStatus($order, 'rechazado_por_cliente', 'Presupuesto rechazado: ' . $repairQuote->quote_number);
+                $this->createClosureQuote($repairQuote, ! ($data['customer_pickup'] ?? false));
+            }
         });
 
         ActivityLog::record($request, 'quote_rejected', 'Presupuesto rechazado: ' . $repairQuote->quote_number, $repairQuote);
@@ -157,8 +168,14 @@ class RepairQuoteController extends Controller
             RepairQuote::where('parent_quote_id', $repairQuote->id)->delete();
             $repairQuote->delete();
 
-            if (! $order->quotes()->where('quote_type', '!=', 'closure')->exists() && ($wasApproved || in_array($order->status, ['presupuesto_emitido', 'rechazado_por_cliente'], true))) {
+            $remainingQuotes = $order->quotes()->where('quote_type', '!=', 'closure');
+
+            if (! $remainingQuotes->exists() && ($wasApproved || in_array($order->status, ['presupuesto_emitido', 'rechazado_por_cliente'], true))) {
                 $this->setOrderStatus($order, 'diagnosticado', 'Presupuesto eliminado: ' . $quoteNumber);
+            } elseif ((clone $remainingQuotes)->where('status', 'aprobado')->exists()) {
+                $this->setOrderStatus($order, 'en_reparacion', 'Presupuesto eliminado; existe otro presupuesto aprobado: ' . $quoteNumber);
+            } elseif ((clone $remainingQuotes)->where('status', 'emitido')->exists()) {
+                $this->setOrderStatus($order, 'presupuesto_emitido', 'Presupuesto eliminado; existen otros presupuestos emitidos: ' . $quoteNumber);
             }
         });
 

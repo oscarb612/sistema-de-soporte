@@ -8,7 +8,7 @@
     $regularQuotes = $order->quotes->where('quote_type', '!=', 'closure');
 @endphp
 <div class="page-head"><div><h1>{{ $order->code }}</h1><p class="muted">Orden de servicio técnico · {{ $order->company->name }}</p></div><div class="head-actions">
-@if($order->service_mode === 'diagnostico' && $order->technical_diagnosis && $regularQuotes->where('status', '!=', 'rechazado')->isEmpty())<a class="btn primary" href="{{ route('repair-orders.quotes.create', $order) }}">Crear presupuesto</a>@endif
+@if($order->service_mode === 'diagnostico' && $order->technical_diagnosis)<a class="btn primary" href="{{ route('repair-orders.quotes.create', $order) }}">Crear presupuesto</a>@endif
 @if($order->payments->isNotEmpty())<a class="btn primary" target="_blank" href="{{ route('repair-orders.payments.print', [$order, $order->payments->sortByDesc('id')->first()]) }}">Imprimir abono</a>@endif
 <a class="btn warning" target="_blank" href="{{ route('repair-orders.print', $order) }}">Imprimir recepción</a><a class="btn" href="{{ route('repair-orders.edit', $order) }}">Editar</a>
 @if($order->client->email)<form method="post" action="{{ route('repair-orders.send-email', $order) }}">@csrf<button class="btn">{{ $order->email_status === 'enviado' ? 'Reenviar correo' : 'Enviar correo' }}</button></form>@endif
