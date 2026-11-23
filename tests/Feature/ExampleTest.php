@@ -292,6 +292,8 @@ class ExampleTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame(2, $order->quotes()->where('quote_type', '!=', 'closure')->count());
+        $this->assertSame('2 presupuestos emitidos', $order->fresh()->status_label);
+        $this->actingAs($user)->get('/')->assertOk()->assertSee('2 presupuestos emitidos');
     }
 
     public function test_quote_can_be_deleted_when_not_approved(): void

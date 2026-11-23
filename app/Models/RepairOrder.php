@@ -159,6 +159,15 @@ class RepairOrder extends Model
             if ($installmentCount > 0) {
                 return $this->installmentOrdinal($installmentCount).' abono';
             }
+
+            if ($this->status === 'presupuesto_emitido') {
+                $quotes = $this->relationLoaded('quotes') ? $this->quotes : $this->quotes()->get();
+                $quoteCount = $quotes->where('quote_type', '!=', 'closure')->count();
+
+                if ($quoteCount > 1) {
+                    return $quoteCount.' presupuestos emitidos';
+                }
+            }
         }
 
         return self::STATUSES[$this->status] ?? $this->status;
